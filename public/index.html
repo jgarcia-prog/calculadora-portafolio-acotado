@@ -1680,12 +1680,13 @@
 
         ws.columns = [
             {width:18}, // A Código
-            {width:22}, // B Monto
-            {width:52}, // C Observación
+            {width:38}, // B Nombre Cliente
+            {width:22}, // C Monto
+            {width:46}, // D Observación
         ];
 
-        // Title
-        ws.mergeCells('A1:C1');
+        // Title — ahora 4 columnas
+        ws.mergeCells('A1:D1');
         applyCell(ws.getCell('A1'), {
             value: 'RESUMEN NOTA DE CRÉDITO',
             font:      xlFont({sz:14, bold:true, color:XL.WHITE}),
@@ -1695,9 +1696,9 @@
         ws.getRow(1).height = 32;
 
         // Subtitle
-        ws.mergeCells('A2:C2');
+        ws.mergeCells('A2:D2');
         applyCell(ws.getCell('A2'), {
-            value: `Bonificación por compra Canales Digitales — ${TODAY_STR}`,
+            value: `Bonificación Portafolio Acotado — ${TODAY_STR}`,
             font:      xlFont({sz:10, color:XL.GRAY_TEXT}),
             fill:      xlFill(XL.CYAN_LIGHT),
             alignment: xlAlign('center','middle'),
@@ -1705,49 +1706,53 @@
         ws.getRow(2).height = 18;
         ws.getRow(3).height = 6;
 
-        // Headers
-        ['Código Cliente','Monto Total (₡)','Observación'].forEach((h, i) => {
+        // Headers — 4 columnas
+        ['Código Cliente','Nombre Cliente','Monto Total (₡)','Observación'].forEach((h, i) => {
             applyCell(ws.getCell(4, i+1), {
                 value: h,
                 font:      xlFont({sz:11, bold:true, color:XL.WHITE}),
                 fill:      xlFill(XL.CYAN),
-                alignment: xlAlign('center','middle'),
+                alignment: xlAlign('center','middle',true),
                 border:    xlBorder(XL.CYAN_DARK),
             });
         });
         ws.getRow(4).height = 22;
 
-        // Aggregate: sum incentivo per codigoCliente
+        // Aggregate: sum incentivo per codigoCliente, keep nombreCliente
         const totals = new Map();
         processedData.filter(r => r.tipo==='data').forEach(r => {
-            totals.set(r.codigoCliente, (totals.get(r.codigoCliente)||0) + r.incentivo);
+            if (!totals.has(r.codigoCliente)) {
+                totals.set(r.codigoCliente, { nombre: r.nombreCliente, monto: 0 });
+            }
+            totals.get(r.codigoCliente).monto += r.incentivo;
         });
 
         let rowNum = 5;
         let i = 0;
         let grandTotal = 0;
-        for (const [cod, monto] of totals) {
+        for (const [cod, {nombre, monto}] of totals) {
             const bg = i%2===0 ? XL.WHITE : XL.GRAY_LIGHT;
             const exRow = ws.getRow(rowNum);
             exRow.height = 18;
-            for (let c=1;c<=3;c++) { ws.getCell(rowNum,c).fill = xlFill(bg); ws.getCell(rowNum,c).border = xlBorderBottom(); }
-            applyCell(ws.getCell(rowNum,1), { value:cod,   font:xlFont({color:XL.GRAY_TEXT}) });
-            applyCell(ws.getCell(rowNum,2), { value:monto, font:xlFont({bold:true}), alignment:xlAlign('right'), numFmt:MONEY_FMT });
-            applyCell(ws.getCell(rowNum,3), { value:'Bonificación por compra Canales Digitales', font:xlFont({color:XL.GRAY_TEXT}) });
+            for (let c=1;c<=4;c++) { ws.getCell(rowNum,c).fill = xlFill(bg); ws.getCell(rowNum,c).border = xlBorderBottom(); }
+            applyCell(ws.getCell(rowNum,1), { value:cod,    font:xlFont({color:XL.GRAY_TEXT}) });
+            applyCell(ws.getCell(rowNum,2), { value:nombre, font:xlFont({bold:true, color:XL.TEXT_DARK}), alignment:xlAlign('left') });
+            applyCell(ws.getCell(rowNum,3), { value:monto,  font:xlFont({bold:true}), alignment:xlAlign('right'), numFmt:MONEY_FMT });
+            applyCell(ws.getCell(rowNum,4), { value:'Bonificación Portafolio Acotado', font:xlFont({color:XL.GRAY_TEXT}) });
             grandTotal += monto;
             rowNum++; i++;
         }
 
-        // Total row
+        // Total row — 4 columnas
         ws.getRow(rowNum).height = 22;
-        for (let c=1;c<=3;c++) {
+        for (let c=1;c<=4;c++) {
             const cell = ws.getCell(rowNum,c);
             cell.fill   = xlFill(XL.CYAN);
             cell.border = xlBorderTopBottom(XL.CYAN_DARK);
             cell.font   = xlFont({sz:11, bold:true, color:XL.WHITE});
         }
         applyCell(ws.getCell(rowNum,1), { value:'TOTAL', alignment:xlAlign('left') });
-        applyCell(ws.getCell(rowNum,2), { value:grandTotal, alignment:xlAlign('right'), numFmt:MONEY_FMT });
+        applyCell(ws.getCell(rowNum,3), { value:grandTotal, alignment:xlAlign('right'), numFmt:MONEY_FMT });
 
         ws.views = [{state:'frozen', xSplit:0, ySplit:4, activeCell:'A5'}];
         return ws;
