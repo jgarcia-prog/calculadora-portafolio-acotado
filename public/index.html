@@ -1,587 +1,1174 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#009ee3">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Portafolio Acotado">
-    <link rel="apple-touch-icon" href="/icons/icon-192.png">
-    <title>Calculadora de Incentivos — Portafolio Acotado</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
-    /* ══ PERSISTENCIA localStorage ══ */
-    const LS_KEY = 'ofersa_gs_config_portafolio_acotado';
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculadora de Incentivos — Portafolio Acotado</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0066FF">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Portafolio Acotado">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-    function guardarConfig() {
-        const cfg = {
-            apiKey:    document.getElementById('gsApiKey').value,
-            sheetId:   document.getElementById('gsSheetId').value,
-            sheetName: document.getElementById('gsSheetName').value,
-            colMarca:  document.getElementById('gsColMarca').value,
-            colPct:    document.getElementById('gsColPct').value,
-        };
-        try { localStorage.setItem(LS_KEY, JSON.stringify(cfg)); } catch(e) {}
+  <style>
+    /* ════════════════════════════════════════════════
+       DESIGN TOKENS — SaaS World-Class
+    ════════════════════════════════════════════════ */
+    :root {
+      /* Brand */
+      --brand:        #0066FF;
+      --brand-dark:   #0052CC;
+      --brand-light:  #EBF2FF;
+      --brand-mid:    #B8D4FF;
+
+      /* Neutrals */
+      --bg:           #F7F8FA;
+      --surface:      #FFFFFF;
+      --surface-alt:  #F0F2F5;
+      --border:       #E2E5EA;
+      --border-dark:  #C8CDD6;
+
+      /* Text */
+      --text-primary:   #0D0F14;
+      --text-secondary: #4A5366;
+      --text-muted:     #8892A4;
+      --text-on-brand:  #FFFFFF;
+
+      /* Semantic */
+      --success:      #059669;
+      --success-bg:   #ECFDF5;
+      --success-border:#A7F3D0;
+      --warning:      #D97706;
+      --warning-bg:   #FFFBEB;
+      --warning-border:#FDE68A;
+      --danger:       #DC2626;
+      --danger-bg:    #FEF2F2;
+      --danger-border:#FECACA;
+      --info-bg:      #EFF6FF;
+      --info-border:  #BFDBFE;
+      --info-text:    #1D4ED8;
+
+      /* Shadows */
+      --shadow-xs:  0 1px 2px rgba(0,0,0,0.05);
+      --shadow-sm:  0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md:  0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04);
+      --shadow-lg:  0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+      --shadow-xl:  0 20px 25px -5px rgba(0,0,0,0.08), 0 10px 10px -5px rgba(0,0,0,0.03);
+
+      /* Radius */
+      --r-sm:  6px;
+      --r-md:  10px;
+      --r-lg:  14px;
+      --r-xl:  20px;
+      --r-full:9999px;
+
+      /* Spacing */
+      --space-1:  4px;
+      --space-2:  8px;
+      --space-3:  12px;
+      --space-4:  16px;
+      --space-5:  20px;
+      --space-6:  24px;
+      --space-8:  32px;
+      --space-10: 40px;
+      --space-12: 48px;
     }
 
-    // ── Credenciales fijas Portafolio Acotado ──
-    const DEFAULT_API_KEY    = 'AIzaSyB1R6VwVZktw_p-3_lGPZpiZhBDxfCmnpQ';
-    const DEFAULT_SHEET_ID   = '1L7mFYLyivZxbMj4C4N175O18HMpDt4xGHFgnsKnDVTA';
-    const DEFAULT_SHEET_NAME = 'Hoja 1';
+    /* ── RESET ── */
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
 
-    function cargarConfig() {
-        document.getElementById('gsApiKey').value    = DEFAULT_API_KEY;
-        document.getElementById('gsSheetId').value   = DEFAULT_SHEET_ID;
-        document.getElementById('gsSheetName').value = DEFAULT_SHEET_NAME;
-        document.getElementById('gsColMarca').value  = 'Descripción';
-        document.getElementById('gsColPct').value    = '% Bonificacion';
-        // Limpiar marcas hardcodeadas y auto-sincronizar desde Sheets
-        document.getElementById('incentivosBody').innerHTML = '';
-        setTimeout(() => cargarDesdeSheets(), 600);
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    function limpiarConfig() {
-        document.getElementById('gsNotice').innerHTML = '';
-        document.getElementById('incentivosBody').innerHTML = '';
-        setGsStatus('', 'Re-sincronizando…');
-        document.getElementById('gsReloadBtn').style.display = 'none';
-        cargarDesdeSheets();
+    input[type=file] { display:none; }
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border-dark); border-radius:var(--r-full); }
+
+    /* ════════════════════════════════════════════════
+       TOPBAR
+    ════════════════════════════════════════════════ */
+    .topbar {
+      position: sticky; top:0; z-index:200;
+      height: 60px;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 var(--space-8);
+      gap: var(--space-4);
     }
 
-    // Load config on page ready
-    document.addEventListener('DOMContentLoaded', cargarConfig);
+    .topbar-logo {
+      display: flex; align-items: center; gap: var(--space-3);
+      text-decoration: none;
+    }
 
-</script>
-    <style>
-        :root {
-            --cyan:        #009ee3;
-            --cyan-dark:   #007bb5;
-            --cyan-light:  #e5f5fc;
-            --cyan-mid:    #b3e0f7;
-            --white:       #ffffff;
-            --bg:          #f4f6f8;
-            --surface:     #ffffff;
-            --border:      #d0d7de;
-            --border-dark: #b0bcc8;
-            --text:        #1a1a1a;
-            --muted:       #555e6b;
-            --dim:         #8a95a3;
-            --danger:      #d93025;
-            --danger-bg:   #fce8e6;
-            --success-bg:  #e6f4ea;
-            --success:     #1a7336;
-            --warn-bg:     #fef7e0;
-            --warn:        #7a5c00;
-            --radius:      8px;
-            --radius-sm:   5px;
-            --shadow:      0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
-            --shadow-md:   0 4px 12px rgba(0,0,0,0.10);
-        }
+    .topbar-logo-img {
+      height: 32px; width: auto;
+      border-radius: var(--r-sm);
+      display: block;
+    }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+    .topbar-divider {
+      width: 1px; height: 20px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
 
-        body {
-            font-family: Arial, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            font-size: 14px;
-            line-height: 1.5;
-        }
+    .topbar-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--brand-light);
+      color: var(--brand);
+      font-size: 11px; font-weight: 600;
+      padding: 3px 10px;
+      border-radius: var(--r-full);
+      border: 1px solid var(--brand-mid);
+      letter-spacing: 0.02em;
+    }
 
-        /* ── TOPBAR ── */
-        .topbar {
-            background: var(--cyan);
-            height: 66px;
-            display: flex;
-            align-items: center;
-            padding: 0 32px;
-            gap: 16px;
-            box-shadow: var(--shadow-md);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
+    .topbar-title {
+      font-size: 13px; font-weight: 600;
+      color: var(--text-secondary);
+      flex: 1;
+    }
 
-        .topbar-logo {
-            background: white;
-            border-radius: 6px;
-            padding: 4px 12px;
-            display: flex;
-            align-items: center;
-            height: 50px;
-        }
+    .topbar-right {
+      display: flex; align-items: center; gap: var(--space-3);
+    }
 
-        .topbar-logo img {
-            height: 30px;
-            display: block;
-        }
+    .sync-status {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--text-muted);
+    }
 
-        /* SVG Ofersa logo drawn inline as fallback */
-        .topbar-logo-svg {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
+    .sync-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--border-dark);
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+    .sync-dot.ok      { background: var(--success); box-shadow: 0 0 0 2px var(--success-bg); }
+    .sync-dot.error   { background: var(--danger);  box-shadow: 0 0 0 2px var(--danger-bg); }
+    .sync-dot.loading {
+      background: var(--brand);
+      box-shadow: 0 0 0 2px var(--brand-light);
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-        .topbar-sep { width: 1px; height: 26px; background: rgba(255,255,255,0.35); }
-        .topbar-title { font-size: 13px; color: rgba(255,255,255,0.90); font-weight: 600; }
+    /* ════════════════════════════════════════════════
+       PAGE LAYOUT
+    ════════════════════════════════════════════════ */
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-6) var(--space-12);
+    }
 
-        /* ── PAGE ── */
-        .page { max-width: 960px; margin: 0 auto; padding: 28px 24px 72px; }
+    /* ── PAGE HEADER ── */
+    .page-header {
+      margin-bottom: var(--space-8);
+    }
 
-        /* ── CARDS ── */
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
+    .page-header h1 {
+      font-size: 22px; font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.4px;
+      margin-bottom: 4px;
+    }
 
-        .card-head {
-            display: flex; align-items: center; gap: 12px;
-            padding: 14px 20px;
-            border-bottom: 1px solid var(--border);
-            background: #fafbfc;
-            cursor: pointer;
-            user-select: none;
-            transition: background 0.15s;
-        }
+    .page-header p {
+      font-size: 14px; color: var(--text-secondary);
+    }
 
-        .card-head:hover { background: #f0f3f7; }
-        .card-head.static { cursor: default; }
-        .card-head.static:hover { background: #fafbfc; }
+    /* ════════════════════════════════════════════════
+       SECTION CARDS
+    ════════════════════════════════════════════════ */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: var(--space-5);
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
 
-        .step-pill {
-            background: var(--cyan); color: white;
-            font-weight: 700; font-size: 11px;
-            padding: 3px 10px; border-radius: 100px;
-            letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0;
-        }
+    .section:hover { box-shadow: var(--shadow-md); }
 
-        .step-pill.green { background: #1a7336; }
+    .section-head {
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-4) var(--space-6);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
 
-        .card-head h2 { font-size: 14px; font-weight: 700; color: var(--text); flex: 1; }
-        .card-head-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .section-head:hover { background: var(--bg); }
+    .section-head.static { cursor: default; }
+    .section-head.static:hover { background: var(--surface); }
 
-        .collapse-icon {
-            width: 20px; height: 20px;
-            display: flex; align-items: center; justify-content: center;
-            color: var(--dim); flex-shrink: 0; transition: transform 0.22s;
-        }
+    .step-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 28px; height: 22px;
+      padding: 0 8px;
+      background: var(--brand);
+      color: white;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.08em;
+      border-radius: var(--r-full);
+      flex-shrink: 0;
+    }
 
-        .card-head.open .collapse-icon { transform: rotate(180deg); }
+    .step-badge.green { background: var(--success); }
+    .step-badge.neutral { background: var(--text-muted); }
 
-        .card-body { padding: 24px; display: none; }
-        .card-body.always-open { display: block; }
+    .section-head h2 {
+      font-size: 14px; font-weight: 600;
+      color: var(--text-primary);
+      flex: 1;
+    }
 
-        /* ── NOTICES ── */
-        .notice {
-            display: flex; align-items: flex-start; gap: 9px;
-            padding: 10px 14px; border-radius: var(--radius-sm);
-            font-size: 13px; line-height: 1.5; margin-bottom: 16px;
-        }
+    .section-head-right {
+      margin-left: auto;
+      display: flex; align-items: center; gap: var(--space-3);
+    }
 
-        .notice svg { flex-shrink: 0; margin-top: 1px; }
-        .notice.info    { background: var(--cyan-light); border: 1px solid var(--cyan-mid); color: #005f8a; }
-        .notice.success { background: var(--success-bg); border: 1px solid #a8d5b5; color: var(--success); }
-        .notice.warning { background: var(--warn-bg);    border: 1px solid #f5d87a;   color: var(--warn); }
-        .notice.error   { background: var(--danger-bg);  border: 1px solid #f5b8b5;   color: var(--danger); }
+    .chevron {
+      width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted);
+      transition: transform 0.22s cubic-bezier(.4,0,.2,1);
+      flex-shrink: 0;
+    }
 
-        /* ── GOOGLE SHEETS PANEL ── */
-        .gs-panel { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 20px; }
-        .gs-panel h4 { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-        .gs-fields { display: flex; flex-direction: column; gap: 12px; }
-        .gs-field-row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
-        .gs-field-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 180px; }
-        .gs-field-group label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-        .gs-field-group .field { width: 100%; }
-        .gs-help { font-size: 11px; color: var(--dim); margin-top: 2px; line-height: 1.4; }
-        .gs-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
-        .gs-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
-        .gs-status-dot.ok      { background: #1a7336; box-shadow: 0 0 0 2px #a8d5b5; }
-        .gs-status-dot.error   { background: var(--danger); box-shadow: 0 0 0 2px #f5b8b5; }
-        .gs-status-dot.loading { background: var(--cyan); box-shadow: 0 0 0 2px var(--cyan-mid); animation: pulse 1s ease-in-out infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .section-head.open .chevron { transform: rotate(180deg); }
 
-        /* ── INSTRUCTIONS ── */
-        .instructions-box { background: white; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px 20px; margin-bottom: 20px; }
-        .instructions-box h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--text); display: flex; align-items: center; gap: 6px; }
-        .steps-list { list-style: none; padding: 0; counter-reset: step; }
-        .steps-list li { counter-increment: step; display: flex; align-items: flex-start; gap: 10px; font-size: 12px; color: var(--muted); margin-bottom: 8px; line-height: 1.5; }
-        .steps-list li::before { content: counter(step); background: var(--cyan); color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
-        .steps-list li code { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-family: 'Courier New', monospace; font-size: 11px; color: var(--text); }
-        .steps-list li a { color: var(--cyan); }
+    .section-body {
+      padding: var(--space-6);
+      display: none;
+    }
 
-        .sub-toggle { background: none; border: none; font-family: Arial, sans-serif; font-size: 13px; color: var(--cyan); cursor: pointer; padding: 0; text-decoration: underline; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
-        .sub-toggle:hover { color: var(--cyan-dark); }
+    .section-body.always-open { display: block; }
 
-        /* ── UPLOAD ── */
-        .upload-zone { border: 2px dashed var(--border-dark); border-radius: var(--radius); padding: 44px 24px; text-align: center; cursor: pointer; transition: border-color 0.18s, background 0.18s; background: var(--bg); }
-        .upload-zone:hover, .upload-zone.dragover { border-color: var(--cyan); background: var(--cyan-light); }
-        .upload-zone svg { width: 36px; height: 36px; stroke: var(--dim); margin-bottom: 12px; transition: stroke 0.18s; display: block; margin-left: auto; margin-right: auto; }
-        .upload-zone:hover svg, .upload-zone.dragover svg { stroke: var(--cyan); }
-        .upload-zone h3 { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-        .upload-zone p  { font-size: 13px; color: var(--muted); }
-        .upload-pill { display: inline-block; margin-top: 12px; padding: 4px 12px; border-radius: 100px; background: white; border: 1px solid var(--border); font-size: 11px; color: var(--muted); }
-        input[type="file"] { display: none; }
+    /* ════════════════════════════════════════════════
+       NOTICES / ALERTS
+    ════════════════════════════════════════════════ */
+    .notice {
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--r-md);
+      font-size: 13px; line-height: 1.55;
+      margin-bottom: var(--space-4);
+      border: 1px solid;
+    }
 
-        /* ── BUTTONS ── */
-        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: var(--radius-sm); font-family: Arial, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; }
-        .btn-primary { background: var(--cyan); color: white; }
-        .btn-primary:hover:not(:disabled) { background: var(--cyan-dark); box-shadow: 0 2px 8px rgba(0,158,227,0.4); }
-        .btn-primary:disabled { background: var(--border); color: var(--dim); cursor: not-allowed; }
-        .btn-outline { background: white; color: var(--cyan); border: 1.5px solid var(--cyan); }
-        .btn-outline:hover { background: var(--cyan-light); }
-        .btn-ghost { background: white; color: var(--muted); border: 1px solid var(--border); }
-        .btn-ghost:hover { border-color: var(--border-dark); color: var(--text); }
-        .btn-green { background: #1a7336; color: white; }
-        .btn-green:hover { background: #145a28; box-shadow: 0 2px 8px rgba(26,115,54,0.35); }
-        .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .notice svg { flex-shrink:0; margin-top:1px; }
+    .notice.info    { background:var(--info-bg);     border-color:var(--info-border);     color:var(--info-text); }
+    .notice.success { background:var(--success-bg);  border-color:var(--success-border);  color:var(--success); }
+    .notice.warning { background:var(--warning-bg);  border-color:var(--warning-border);  color:var(--warning); }
+    .notice.error   { background:var(--danger-bg);   border-color:var(--danger-border);   color:var(--danger); }
 
-        .btn-danger-sm { background: transparent; color: var(--dim); border: 1px solid transparent; padding: 5px 10px; font-size: 12px; font-family: Arial, sans-serif; cursor: pointer; border-radius: var(--radius-sm); transition: all 0.15s; }
-        .btn-danger-sm:hover { background: var(--danger-bg); color: var(--danger); border-color: #f5b8b5; }
+    /* ════════════════════════════════════════════════
+       BUTTONS
+    ════════════════════════════════════════════════ */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 18px;
+      border-radius: var(--r-md);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none;
+      transition: all 0.15s;
+      white-space: nowrap;
+      text-decoration: none;
+      touch-action: manipulation;
+    }
 
-        /* ── FIELDS ── */
-        .field { padding: 8px 12px; background: white; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: Arial, sans-serif; font-size: 13px; color: var(--text); outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
-        .field:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0,158,227,0.15); }
-        .field::placeholder { color: var(--dim); }
+    .btn-primary {
+      background: var(--brand); color: white;
+      box-shadow: 0 1px 3px rgba(0,102,255,0.3);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--brand-dark);
+      box-shadow: 0 4px 12px rgba(0,102,255,0.4);
+      transform: translateY(-1px);
+    }
+    .btn-primary:active:not(:disabled) { transform:translateY(0); }
+    .btn-primary:disabled { background:var(--border); color:var(--text-muted); cursor:not-allowed; box-shadow:none; }
 
-        /* ── ADD BRAND ROW ── */
-        .add-row { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
-        .add-row .field-brand { flex: 1; min-width: 160px; }
-        .add-row .field-pct   { width: 80px; text-align: center; }
+    .btn-outline {
+      background: white; color: var(--brand);
+      border: 1.5px solid var(--brand);
+    }
+    .btn-outline:hover { background: var(--brand-light); transform: translateY(-1px); }
 
-        /* ── BULK ── */
-        .bulk-panel { background: var(--cyan-light); border: 1px solid var(--cyan-mid); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 20px; }
-        .bulk-panel h4 { font-size: 13px; font-weight: 700; color: var(--cyan-dark); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
-        .bulk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 12px; }
-        .bulk-item { display: flex; align-items: center; gap: 8px; background: white; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; }
-        .bulk-item label { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .bulk-item input { width: 60px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; font-family: Arial, sans-serif; font-size: 13px; font-weight: 700; color: var(--cyan-dark); text-align: center; outline: none; background: var(--bg); }
-        .bulk-item input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,158,227,0.15); }
-        .bulk-item span { font-size: 12px; color: var(--muted); }
-        .bulk-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-        .bulk-set-all { display: flex; gap: 6px; align-items: center; }
-        .bulk-set-all input { width: 64px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: Arial, sans-serif; font-size: 13px; text-align: center; outline: none; }
-        .bulk-set-all input:focus { border-color: var(--cyan); }
-        .bulk-set-all span { font-size: 12px; color: var(--muted); }
+    .btn-ghost {
+      background: transparent; color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg); border-color: var(--border-dark); color: var(--text-primary); }
 
-        /* ── BRANDS TABLE ── */
-        .brands-table { width: 100%; border-collapse: collapse; }
-        .brands-table thead th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 8px 12px; text-align: left; border-bottom: 2px solid var(--border); }
-        .brands-table tbody tr { transition: background 0.1s; }
-        .brands-table tbody tr:hover { background: var(--cyan-light); }
-        .brands-table tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
-        .brands-table tbody td:first-child { font-weight: 600; color: var(--text); }
-        .pct-input { width: 60px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; font-family: Arial, sans-serif; font-size: 13px; font-weight: 700; color: var(--cyan-dark); text-align: center; outline: none; }
-        .pct-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,158,227,0.15); }
-        .pct-suffix { font-size: 12px; color: var(--muted); margin-left: 3px; }
-        .source-badge { display: inline-block; padding: 2px 7px; border-radius: 100px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
-        .source-badge.sheets { background: #e6f4ea; color: #1a7336; border: 1px solid #a8d5b5; }
-        .source-badge.manual { background: var(--bg);  color: var(--dim);   border: 1px solid var(--border); }
+    .btn-green {
+      background: var(--success); color: white;
+      box-shadow: 0 1px 3px rgba(5,150,105,0.3);
+    }
+    .btn-green:hover { background: #047857; box-shadow: 0 4px 12px rgba(5,150,105,0.35); transform:translateY(-1px); }
 
-        /* ── DIVIDER ── */
-        .divider { height: 1px; background: var(--border); margin: 20px 0; }
+    .btn-danger-sm {
+      background: transparent; color: var(--text-muted);
+      border: 1px solid transparent;
+      padding: 5px 10px;
+      font-size: 12px; font-family: 'Inter',sans-serif;
+      cursor: pointer;
+      border-radius: var(--r-sm);
+      transition: all 0.15s;
+    }
+    .btn-danger-sm:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger-border); }
 
-        /* ── ACTION ROW ── */
-        .action-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .status-msg { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-xs { padding: 4px 10px; font-size: 11px; }
 
-        /* ── LOADING ── */
-        .loading-wrap { display: none; flex-direction: column; align-items: center; padding: 44px; gap: 14px; }
-        .loading-wrap.active { display: flex; }
-        .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--cyan); border-radius: 50%; animation: spin 0.7s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .loading-wrap p { font-size: 13px; color: var(--muted); }
+    .toggle-link {
+      background: none; border: none;
+      color: var(--brand); font-family: 'Inter',sans-serif;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; padding: 0;
+      display: inline-flex; align-items: center; gap: 5px;
+      transition: color 0.15s;
+    }
+    .toggle-link:hover { color: var(--brand-dark); }
 
-        /* ── STATS ── */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
-        .stat-tile { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; }
-        .stat-tile .slabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--dim); margin-bottom: 6px; }
-        .stat-tile .svalue { font-size: 22px; font-weight: 700; color: var(--cyan-dark); }
-        .stat-tile.alt .svalue { color: var(--text); }
+    /* ════════════════════════════════════════════════
+       FORM FIELDS
+    ════════════════════════════════════════════════ */
+    .field {
+      padding: 9px 13px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px; color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      width: 100%;
+    }
+    .field:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(0,102,255,0.12);
+    }
+    .field::placeholder { color: var(--text-muted); }
 
-        /* ── RESULTS TABLE ── */
-        .results-scroll { overflow: auto; max-height: 500px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-        .results-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .results-table thead { position: sticky; top: 0; z-index: 5; }
-        .results-table thead th { background: var(--cyan); color: white; padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 2px solid var(--cyan-dark); white-space: nowrap; }
-        .results-table thead th.right { text-align: right; }
-        .results-table tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--muted); }
-        .results-table tbody tr:nth-child(even) td { background: var(--bg); }
-        .results-table tbody tr:hover td { background: var(--cyan-light); color: var(--text); }
-        .results-table td.right { text-align: right; font-size: 12px; }
-        .results-table td.code { font-size: 12px; color: var(--dim); }
-        .results-table td.name { font-weight: 600; color: var(--text); }
-        .results-table td.brand { font-weight: 600; color: var(--cyan-dark); }
-        .results-table tr.subtotal td { background: #dcf0fa !important; font-weight: 700; font-size: 12px; color: var(--cyan-dark); border-top: 1px solid var(--cyan-mid); border-bottom: 1px solid var(--cyan-mid); }
-        .results-table tr.grand-total td { background: var(--cyan) !important; color: white; font-weight: 700; font-size: 13px; border: none; }
-        .results-table tr.grand-total td.right { font-size: 12px; }
-        .pct-badge { display: inline-block; padding: 1px 8px; border-radius: 100px; background: var(--cyan-light); border: 1px solid var(--cyan-mid); font-size: 11px; color: var(--cyan-dark); font-weight: 700; }
+    .field-label {
+      display: block;
+      font-size: 11px; font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      margin-bottom: 5px;
+    }
 
-        /* ── DOWNLOAD GROUP ── */
-        .download-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .field-help {
+      font-size: 11px; color: var(--text-muted);
+      margin-top: 4px; line-height: 1.4;
+    }
 
-        .download-card {
-            display: flex; flex-direction: column; gap: 4px;
-            padding: 12px 16px;
-            border: 1px solid var(--border); border-radius: var(--radius-sm);
-            background: var(--bg);
-        }
+    /* ════════════════════════════════════════════════
+       GOOGLE SHEETS PANEL
+    ════════════════════════════════════════════════ */
+    .gs-panel {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: var(--space-5);
+      margin-bottom: var(--space-5);
+    }
 
-        .download-card .dc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); }
-        .download-card .dc-desc  { font-size: 11px; color: var(--muted); }
+    .gs-panel-title {
+      font-size: 13px; font-weight: 600;
+      color: var(--text-primary);
+      display: flex; align-items: center; gap: 7px;
+      margin-bottom: var(--space-4);
+    }
 
-        .toggle-link { background: none; border: none; color: var(--cyan); font-family: Arial, sans-serif; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 0; }
-        .toggle-link:hover { color: var(--cyan-dark); }
+    .gs-grid {
+      display: grid;
+      grid-template-columns: 2fr 2fr 1fr;
+      gap: var(--space-4);
+      margin-bottom: var(--space-4);
+    }
 
-        /* ── FOOTER ── */
-        .footer { background: var(--cyan); text-align: center; padding: 16px; font-size: 12px; color: rgba(255,255,255,0.75); }
-        .footer strong { color: white; }
+    .gs-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: var(--space-4);
+      align-items: end;
+    }
 
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 3px; }
-        #fileInfo .notice { margin-top: 10px; }
-    </style>
+    .gs-btn-group {
+      display: flex; gap: var(--space-2);
+    }
+
+    @media (max-width: 680px) {
+      .gs-grid, .gs-grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Instructions */
+    .instr-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 500; color: var(--brand);
+      background: none; border: none; cursor: pointer;
+      padding: 0; margin-bottom: var(--space-4);
+      transition: color 0.15s;
+    }
+    .instr-toggle:hover { color: var(--brand-dark); }
+
+    .instr-box {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: var(--space-5);
+      margin-bottom: var(--space-5);
+    }
+
+    .instr-box h4 {
+      font-size: 13px; font-weight: 600;
+      color: var(--text-primary);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: var(--space-4);
+    }
+
+    .instr-list { list-style: none; counter-reset: step; }
+    .instr-list li {
+      counter-increment: step;
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      font-size: 12px; color: var(--text-secondary);
+      margin-bottom: var(--space-3); line-height: 1.55;
+    }
+    .instr-list li::before {
+      content: counter(step);
+      background: var(--brand); color: white;
+      border-radius: 50%; width: 18px; height: 18px; min-width: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700;
+      margin-top: 1px;
+    }
+    .instr-list code {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 4px; padding: 1px 6px;
+      font-family: 'Courier New', monospace; font-size: 11px;
+    }
+    .instr-list a { color: var(--brand); }
+
+    /* ════════════════════════════════════════════════
+       UPLOAD ZONE
+    ════════════════════════════════════════════════ */
+    .upload-zone {
+      border: 2px dashed var(--border-dark);
+      border-radius: var(--r-lg);
+      padding: 52px var(--space-6);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg);
+      position: relative;
+    }
+
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--brand);
+      background: var(--brand-light);
+    }
+
+    .upload-icon {
+      width: 48px; height: 48px;
+      margin: 0 auto var(--space-4);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .upload-zone:hover .upload-icon, .upload-zone.dragover .upload-icon {
+      background: var(--brand); border-color: var(--brand);
+    }
+
+    .upload-zone:hover .upload-icon svg, .upload-zone.dragover .upload-icon svg {
+      stroke: white;
+    }
+
+    .upload-icon svg { stroke: var(--text-muted); transition: stroke 0.2s; }
+
+    .upload-zone h3 {
+      font-size: 15px; font-weight: 600;
+      color: var(--text-primary); margin-bottom: 4px;
+    }
+
+    .upload-zone p { font-size: 13px; color: var(--text-secondary); }
+
+    .upload-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: var(--space-3); padding: 4px 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-full);
+      font-size: 11px; font-weight: 500; color: var(--text-muted);
+    }
+
+    #fileInfo .notice { margin-top: var(--space-3); }
+
+    /* ════════════════════════════════════════════════
+       BRANDS TABLE
+    ════════════════════════════════════════════════ */
+    .add-row {
+      display: flex; gap: var(--space-3); align-items: center;
+      margin-bottom: var(--space-5); flex-wrap: wrap;
+    }
+    .add-row .field-brand { flex:1; min-width:160px; }
+    .add-row .field-pct   { width:72px; text-align:center; }
+
+    .brands-table { width:100%; border-collapse:collapse; }
+    .brands-table thead th {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .brands-table tbody tr { transition: background 0.1s; }
+    .brands-table tbody tr:hover { background: var(--brand-light); }
+    .brands-table tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .brands-table tbody td:first-child { font-weight: 600; color: var(--text-primary); }
+
+    .pct-input {
+      width: 60px; padding: 5px 8px;
+      border: 1px solid var(--border); border-radius: var(--r-sm);
+      font-family: 'Inter',sans-serif; font-size: 13px; font-weight: 600;
+      color: var(--brand); text-align: center; outline: none;
+      background: var(--bg);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .pct-input:focus { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(0,102,255,.12); }
+    .pct-suffix { font-size: 12px; color: var(--text-muted); margin-left:2px; }
+
+    .source-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: var(--r-full);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    }
+    .source-badge.sheets { background:var(--success-bg); color:var(--success); border:1px solid var(--success-border); }
+    .source-badge.manual  { background:var(--bg); color:var(--text-muted); border:1px solid var(--border); }
+
+    /* ── BULK ── */
+    .bulk-panel {
+      background: var(--brand-light);
+      border: 1px solid var(--brand-mid);
+      border-radius: var(--r-md);
+      padding: var(--space-5);
+      margin-bottom: var(--space-5);
+    }
+
+    .bulk-panel h4 {
+      font-size: 13px; font-weight: 600;
+      color: var(--brand-dark);
+      display: flex; align-items: center; gap: 7px;
+      margin-bottom: var(--space-4);
+    }
+
+    .bulk-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: var(--space-2); margin-bottom: var(--space-4);
+    }
+
+    .bulk-item {
+      display: flex; align-items: center; gap: var(--space-3);
+      background: white; border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 8px 12px;
+    }
+
+    .bulk-item label {
+      flex: 1; font-size: 13px; font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .bulk-item input {
+      width: 56px; padding: 5px 7px;
+      border: 1px solid var(--border); border-radius: var(--r-sm);
+      font-family: 'Inter',sans-serif; font-size: 13px; font-weight: 600;
+      color: var(--brand); text-align: center; outline: none;
+      background: var(--bg);
+    }
+    .bulk-item input:focus { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(0,102,255,.1); }
+    .bulk-item span { font-size: 12px; color: var(--text-muted); }
+
+    .bulk-actions {
+      display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center;
+    }
+    .bulk-set-all {
+      display: flex; gap: var(--space-2); align-items: center;
+      font-size: 12px; color: var(--text-secondary);
+    }
+    .bulk-set-all input {
+      width: 60px; padding: 6px 8px;
+      border: 1px solid var(--border); border-radius: var(--r-sm);
+      font-family: 'Inter',sans-serif; font-size: 13px;
+      text-align: center; outline: none;
+    }
+    .bulk-set-all input:focus { border-color: var(--brand); }
+
+    /* ════════════════════════════════════════════════
+       DIVIDER & ACTION ROW
+    ════════════════════════════════════════════════ */
+    .divider { height:1px; background:var(--border); margin: var(--space-5) 0; }
+
+    .action-row {
+      display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap;
+    }
+
+    .status-msg {
+      font-size: 12px; color: var(--text-muted);
+      display: flex; align-items: center; gap: 5px;
+    }
+
+    /* ════════════════════════════════════════════════
+       LOADING
+    ════════════════════════════════════════════════ */
+    .loading-wrap {
+      display: none; flex-direction: column; align-items: center;
+      padding: 56px; gap: var(--space-4);
+    }
+    .loading-wrap.active { display: flex; }
+
+    .spinner-ring {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--brand);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to{ transform:rotate(360deg); } }
+    .loading-wrap p { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+
+    /* ════════════════════════════════════════════════
+       STATS GRID
+    ════════════════════════════════════════════════ */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--space-4); margin-bottom: var(--space-6);
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: var(--space-5);
+      position: relative; overflow: hidden;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+    .stat-card.primary { background: var(--brand); border-color: var(--brand-dark); }
+    .stat-card.primary .stat-label { color: rgba(255,255,255,0.7); }
+    .stat-card.primary .stat-value { color: white; }
+
+    .stat-card.success-card { background: var(--success-bg); border-color: var(--success-border); }
+    .stat-card.success-card .stat-label { color: var(--success); opacity:.8; }
+    .stat-card.success-card .stat-value { color: var(--success); }
+
+    .stat-label {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-muted); margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 24px; font-weight: 800;
+      color: var(--brand-dark);
+      letter-spacing: -0.5px; line-height: 1.1;
+    }
+
+    .stat-sub {
+      font-size: 11px; color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .stat-icon {
+      position: absolute; top: 16px; right: 16px;
+      width: 32px; height: 32px;
+      border-radius: var(--r-md);
+      background: rgba(0,102,255,0.08);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .stat-card.primary .stat-icon { background: rgba(255,255,255,0.15); }
+    .stat-card.success-card .stat-icon { background: rgba(5,150,105,0.1); }
+
+    /* ════════════════════════════════════════════════
+       RESULTS TABLE
+    ════════════════════════════════════════════════ */
+    .results-scroll {
+      overflow: auto; max-height: 520px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      box-shadow: var(--shadow-xs);
+    }
+
+    .results-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+
+    .results-table thead { position: sticky; top:0; z-index:5; }
+
+    .results-table thead th {
+      background: var(--text-primary);
+      color: white;
+      padding: 11px 14px;
+      text-align: left;
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .results-table thead th.right { text-align: right; }
+
+    .results-table tbody td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+      transition: background 0.1s;
+    }
+
+    .results-table tbody tr:nth-child(even) td { background: var(--bg); }
+    .results-table tbody tr:hover td { background: var(--brand-light); color: var(--text-primary); }
+
+    .results-table td.right { text-align:right; font-size:12px; font-variant-numeric: tabular-nums; }
+    .results-table td.code  { font-size:12px; color:var(--text-muted); font-family:'Courier New',monospace; }
+    .results-table td.name  { font-weight:600; color:var(--text-primary); }
+    .results-table td.brand { font-weight:600; color:var(--brand); }
+
+    .results-table tr.subtotal td {
+      background: #EFF6FF !important;
+      font-weight: 700; font-size: 12px;
+      color: var(--brand-dark);
+      border-top: 1px solid var(--brand-mid);
+      border-bottom: 1px solid var(--brand-mid);
+    }
+
+    .results-table tr.grand-total td {
+      background: var(--text-primary) !important;
+      color: white; font-weight: 700; font-size: 13px;
+    }
+
+    .pct-badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: var(--r-full);
+      background: var(--brand-light); border: 1px solid var(--brand-mid);
+      font-size: 11px; font-weight: 700; color: var(--brand);
+    }
+
+    /* ════════════════════════════════════════════════
+       DOWNLOAD AREA
+    ════════════════════════════════════════════════ */
+    .download-group {
+      display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-start;
+    }
+
+    .download-card {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+
+    .download-card .dc-desc {
+      font-size: 11px; color: var(--text-muted); padding-left: 2px;
+    }
+
+    /* ════════════════════════════════════════════════
+       FOOTER
+    ════════════════════════════════════════════════ */
+    .footer {
+      text-align: center;
+      padding: var(--space-8) var(--space-6);
+      font-size: 12px; color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      margin-top: var(--space-8);
+    }
+
+    .footer strong { color: var(--text-secondary); font-weight: 600; }
+
+    /* ════════════════════════════════════════════════
+       RESPONSIVE
+    ════════════════════════════════════════════════ */
+    @media (max-width: 600px) {
+      .topbar { padding: 0 var(--space-4); }
+      .page   { padding: var(--space-5) var(--space-4) var(--space-12); }
+      .section-body { padding: var(--space-4); }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .download-group { flex-direction: column; }
+      .add-row { flex-direction: column; }
+      .add-row .field-brand, .add-row .field-pct { width: 100%; }
+      .topbar-title { display: none; }
+    }
+
+    /* ════════════════════════════════════════════════
+       ANIMATION UTILITIES
+    ════════════════════════════════════════════════ */
+    @keyframes fadeIn {
+      from { opacity:0; transform:translateY(6px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    .animate-in { animation: fadeIn 0.25s ease forwards; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
 </head>
 <body>
 
-<!-- TOPBAR -->
-<div class="topbar">
-    <div class="topbar-logo">
-        <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCABcAQADASIAAhEBAxEB/8QAHQABAAIDAQEBAQAAAAAAAAAAAAcIBQYJBAMBAv/EAEMQAAEDBAADBQUDCAgHAQAAAAECAwQABQYRBxIhCBMxQVEUImGBkRVCcQkjMjdydaGzFiQzUoKSosEXU1VissPhsf/EABsBAQADAQADAAAAAAAAAAAAAAABBQYEAgMH/8QALREBAAEDAgMGBQUAAAAAAAAAAAECAwQFERIhQRNhkaHR8AYUMXHBQlGBseH/2gAMAwEAAhEDEQA/ALl0pSgV4rpd7Va0pVcrlEhhX6JfeSjf4bNaVxlzpzF4Ddvtik/akpJUFHr3KPDm15k9QPwNQXEs2UZItyfHgXG5FSjzv8il7P7R86ucHSJv2+1u1cNP9sxqvxHGJe+XsUcdfXu8PqtVbLrbLohTltuEWYlJ0osOpWB+OjXsqnzjd5x65p7xEy2TWyCNhTax8asHwdzheV2xyJcOUXSIB3hSNB1B6BevI+R/+1Ofo9WNR2turipNI+JKM278veo4K/KfSW/UpSqVpylKUClKUClKUClKUClKUClKUClKUClKUClKUClKUClKUClKUClKUFa+O61ucTZaHSQhDbKU/s8gJ/iTVh7FHhxLNDj29CERUMpDQQOnLrofn41FXaCxCTLLeT29pTpab7uYhPUhI6hfy2Qfl8a0DGeJOVY/ATAiS2noyBptEhvn7segPQ6+FamvFq1HCtdjMb08pj375sDbz6NG1S/OTTO1c7xMftvM+HPxhKfaMhRncMYnLaSZDEpKW3NdQlQOxv06D6VHHAWS8xxIhtNq0mQ0624PVIQVf/qRXiy3iJkGT2n7MuQh9x3iXPzTRSrY3rrv41pyM4awCcxfg62JLYUGW1J5islJSdDY8jXbZxK8fT67V6Y69eXP/VZlahazNYtZGPTMxvT05ztPPyXTpVG7n2tuITjpFvgWVhryLrClqP4+8BS0drjiJHlJXcbXYpzG/ebSytpRHwUFHR+RrFVRETtvu+n0VTVTvMbfdeSlRTwW464hxLUm3sKXar5y7NvkqBLmhsltXgsDr06HpvWqlaoeRSlKBSlKBSsLm2U2PDcck3/IZyIcGOOqj1UtXkhI8VKPkBVb7x2yLc1OUi04PJlRQfdckTwys/4QhQH1oLVUrWuF+VozjA7VlTcJcFNwaLgYUvnKNKKdb0N+HpWy0ClKUClKUClKUClKUClKUClKUClKUClKUAgEEEAg+INaVfeF2H3aUuUuC5EdWdqMVzkBPry9QPkK3Wle21fuWZ3t1TH2c+RiWMmnhvURVHfCAeNOCY3hGDP5BEdnlTDiQoOupUOXRJ6BI69PWqSX+6TL7eHJsgqU44rTaB15U+SRV5+3A8tngU+lG/ztxjoV+G1H/aqo9ly1xbvx7xWJMSlbSZK5HKobBU00txP+pAroyM+9ftU266t9ubjw9JxsS/VetURG8REfnx/CY+EHZPRPtLF34hXCZEW+gLRbYZSlbYPh3iyD1190Dp6+VbPm3ZFxOXbVqxK83G2z0jaEzFh5hfwOgFJ8uuz+FWWpXEtFDMQ4eXTh7kBfvaCxf4q9tFCthn0Uk+ZPr/8Aaudw1yUZVike5KATJSS1JSPAOJ1s/gdg/Oo97TFvYDdouiQA+VLYWfNSehH06/Wv57MshzmvcUklvTTgHkD7wP8At9K0d7Hs3NLpu0U7TT67T6sVi5mRY16vHuVcUVeXLePD6JprySrnbYi+SVcIjCvRx5KT/E1WHtecc7tYruvA8NmqhSm0A3Kc10cQVDYabPkdEEqHXqACNGoO4c8GOIvE+1v5DbG2lRe8UkSp8kpL6x4hOwSrr034b8/Gs3u2rotHfYkN95HebeQfvIUFD6ivpXNG1X3iHwZzl+EzKl2q4wnQmTDWoqZeHiOZP6K0kdQR5HYNX34aZnG4lcLmchtzXdPS47jT0fmH5p8ApUjfpvqCfIg1Irj+UCv8l2+43jrUj+otxlzFoSropxSuQE+ugk6/aPrWF7JnBrEs/sN1yDLnHXmWJQiRozb5a0QkKUtRHU/pJAHwNQ9xMwfLcEu8e35fD9llSGe+aT7Sh7aOYje0qIHUHpWV4a8KuImdWd664jbfaoTMgsOL9tbZ04EpURpSgT0UOtQOi2IY/bMWxqDj9nbW3AhN92wla+YhO99SfHxrISZMaK33kmQ0wj+84sJH1NaHxVzpnhdwn+3JrKXprLLUaNHUv+1kFOgkn0GiTrySapTj1p4ndoHM5W7kua80jvH35bqkRYqCdBIABCd9dJSNnRPkTUjodDnwJm/Y5saRrx7p1K9fQ16a5x8ROHnELghe7bcX56Y63lFUS4WyQrk5062k7AIOiOhGiN+PWrkdmTiW5xL4eJm3EtC829z2aeEdOc6BS5ry5h8thWqCUVutIVyrdQk+hUBRx5ltkvOOtoaA2VqUAkfOqO9u9x5jjLD7p5xsLszKiEqIG+8dH+1R5ecxzTPcfx/B7THucuFaYaWhCiIW4p9wEkuLSnZPiAN+GviajcdI4kmNLZ76JIakNE652lhSd/iK/p51plsuPOIbQPFS1AAfM1DfZBtd0xzgiiLfrbMtklqbJcWzKZU04E7B3yqAOqqHxa4lZVxUzRSHZjyILsrubdbkulLTaVK5U7HQFR6bUf4DpUjovHu1rkOd2xcobq965UPpUd/gDXsqhk/ss8WLdCRNhi0y3wnmLEacUupPptQSnf4GruYXbH7LiFntEl5b78OEyw64tZUVqSgAkk9T1BoMo860y2XHnENoHipagAPrXkbvFocd7pu6wVueHKmQkn6bqqPHXhBxaz3i9eBbJEl+wJU2uK7OmlEdoKQkqQhPno7/AEU/j1qL+JnZ7z/h/jbuST3LZMgxinv3IMhSlM7UEgkKSk62R1G6gdDKVTrsW8W72vKm+H2Q3F+dCltKNtW+orWw4hJUWwo9eQpCtA+BA141cWpClKUClKUClKUEe9ozFXcx4N3+zxWy5MSwJMZKU7KnGiFhIHqQCn51z34cZNIwvO7Rk8drvXLdJS6ponXOnwWnfltJI+ddSqp92n+zvck3aXmWAwFzI8lZdm2xhO3GlnZU42n7ySfujqCeg14QLS4PldjzPHY1+x+c1LiPpB90+82rQJQsfdUN9Qay8uTHhxXZUt9thhpBW464oJShI6kknoBXLGx3/JcVmuLs13udmk7057O+tlRI8lAEfxr1ZHnWZ5JH9mv2U3i5Mf8AJkS1rR/lJ1TcWx4v5zbszusc2OUiVaoiVJaeQdpdWT7yh8OgHyqRezlZlw8al3d0EGe6Etgj7iNjfzJV9KrX2WOF+a3+6InzIr1vxNXvvOyElJkfBkHxPqrw18dVeKFGYhxGYkZtLTDKAhtCfBKQNAVd39St1YNOPbjaevvvlmMTRb1Gq3M29VvH6f55eUcnMjjXIkSuMGXvSVKU6bzKSebyAdUAPkAB8q6Bdn1iNG4J4g3FCQ2bUys8o1tSk8yj/mJqqHbM4Y3PH88l5rCjLesl4cDrrjaOkeQR7yV+nMQVA+eyPLr6OBXaXdwPDGsXv1jfu0eGSITzL4QtCCd92oEdQCTo+Q6a6VSNO/jt8sR2uL9tdaSkOvWVpTuh4kOugE/IAfKpI/J8vSVYRksdalGMi5IU2D4BSmxza+SU1WfiRlmQcXOJLl2+z1uTZqkR4UGMkrKEDohseaj12T5kk9PCr2dnHh+5w54YQ7LLCPtOQsy5/KdgOrAHLv8A7UhKfkaCt/5QH9ZVh/dH/tXUmdgL9U94/fS/5LVRn+UB/WVYf3R/7V1JnYC/VPeP30v+S1TqNc/KGSHxAxCICoMKdkuKG+hUA2B/An61AvCfLeKmNQpzfDw3JMd9xJlGJbEydqAPLsltWuhPSri9rbhxM4gcOErszCn7zaHTJjNJ8XkEacbHxI0R8U686qBwV4r5JwkvspUKK3JhyVJTOt8kFHMUk6IPihY2RvRHXqD0oPZn1744Z5bWLdldvyC5RY7vfNINk7vlXoje0Ng+BNTV2C7LkFmuOVpu1ouNvYeZjFHtUdbQWoFzw5gN6B/jX492yoQjgs4FIU9rqlVyAT9e73/Cpy4DZ49xI4cxcnkxGYch2Q804w0oqSjlWQkbPU+7y7+O/Cgqr2+P1x279yM/znqljsC2uEzwxut3QwgTZN0Wy47r3ihDaClO/QFSj86ift8frjt37kZ/nPVMvYM/UxL/AHy9/LaoJ/dbQ60tpY2haSlQ9Qa578buBOXYHfJcu226VdcfK1Ox5kZsrLKN75XQOqSB5+B8d+IHQK5zGbfbZU+StKGIzK3nFE6CUpBJJ+QqqWNdsQNx1NZJiCnnkqOnoMgJCxvptCgdHWvvH5UkRhw17SHEXEZDTFynnIrakgLjzztwJ8+V39IH9rmHwq8+CZVasyw+BlFocJgzWu8Tz9FNkEhSVfFJBB/CudXG3M7ZxA4gSMhs2PoszLzaEdwjRU6sb24rlAHMd+XoKul2dsKvFi7PLGPXMuQ7jcI8lwoV0VH77m5AfQgEEjyJNIEA8bO0xld7v0m0YJLXaLQ06Wm5LKAZErR1zcx3ygnwCeuvE+Va/fcA4/z8HuORZNOvaLM1FVJkNXC7K2tsdTtkqJ8vAgVFPJPxTL0pmxC3OtM4FyO8n77a9lJHpsVYPi32nHM3wSVimO4xKhSbk13Up110O8rfitKEgddgEbOtDfT0CK+zOSOPOIEHX9fA/wBKq6S1zY7NJA474gT/ANQT/wCJrpPSApSlSFKUoFKUoFKUoNcyjA8Lycld/wAXtNxcI13r0VJc18F65h9ax+P8KeG9hfEi14XZmXknaXFxg4tJ9QpeyPlW50oPxICUhKQAB0AHlX7SlB8ZsWNNiuRJkdmTHdTyuNOoC0LHoQehFRbd+zrwhuUxUpzFEx1rUVKTGkutI2fRKVaH4DVSXervarJD9svFyiW+MVcodkvJbSVaJ1snx0D0+FeO3ZXjFyMj7PyG1S/ZWQ+/3MtC+6bI3zq0eideZ6UGLwThtg+EcysZxyHBeUNKf0VvEenOolWvgDqttrF27IrDcmo7sC8wJSJLq2WFNSEqDi0gqUlOj1IAJI8gK+T+V4wx7H32Q2tv246i80pA773uX3OvXr06efSgxOc8MsGze4MXDKcfZuUlhruWnFuuJKUbJ17qh5k1kMHw3GsJtjtsxe1N22I88X3G0LUoKWQAT7xJ8Ej6VkWLxaX7u9aGLlEduLCeZ6Kh5JdbHu9VJ3sD3k+P94VhL/neP2nJbTjhmMSbpcZ6YXsrLyC4wS046FrTvYTpvX+JPrQbTWk5vwn4e5pK9ryHF4UmWRoyUAtOq/aUggq+e62a3XuzXKbKhW+6wpcmIeWQyy8la2jsjSgDsdQR+INYCFxAscnKMgs5kRo7GP8AIifLflIQlDi0oUEhO960sDmOhzAp6mg1KH2b+D0Zzn/osXvg7NeUP/OpLxyxWbHLWi12G1xLbCQdpZjNBCd+ZOvEnXiepr5/0kx7uYD323bu7uKuWEr2lGpCtgaR1947IGh61815ZjCIb8xeQ2sRo7oZed9qRyocI2EE76K11140GGzfhbgWa3Zu65PjrFymtshhDq3XEkIBJA0lQHio/WsthWI47hdoXacYtjduhLeLymkLUoFZABO1EnwSPpX43l+OOZMxjjd2iruMiGJrLaXEnvGTvSknfXoCenkN19GMqxl+2yLkzkFrchRlhD8hMpBbbUdaClb0N7GvXYoMs+00+yth9tDrTiSlaFpBSpJ6EEHxFRhe+z7wju0pcl7EWI7i1cyvZXnGU7+CUqCR8hW7HKbQ2ua7IlMR7fEaZWuc5IbDKi6NpA97fgUnZAB5hrfXWWhSo02I1MhyGpEd5AW060sKQtJ6ggjoQaDRcM4McNMRnouFlxWIiY3/AGb76lPrQfVPOTyn4jrUgUpQaNxA4ScPs7lpm5JjrEiYBy+0tLUy6oeQUpBHN896r+cO4QcOcSZkt2XGYrS5TKmHnnVKddU2oEKSFqJKQQSDrW63ulBHth4KcMLDeYl4tOJxos+I4HWHkvukoUPA6KtVIVKUClKUClKUClKUClKUClKUClKUGGySym7T7DI5mgi2XL2xaVp3zjuHmwB8QXQflWnI4eXWDb4yLFdIdtmRrLcLey82z0Q7IeQ42sDXgkoPzNSVSghy8YPfbZik9qDt3IJ9/Ym2x1tx6WISwy0ytbrzvvcvdodKlHXRfKkb0KzF+4czjGmWywv25m3XGxx7K+ZSVFyK00XB3jWv0lFLqtAkaUEq2eoqS6UGuYpji7Lf8nui3WnPtme3JRyp95CERmWeVR8+raj/AIq1IcOr0jI7c4ibbDa4OTv38OKQv2lwvNupLR6cvul06VvqlKRoa6yhSgj7hjw/Xic1Lsru5LkaO5FjSxcJCyppbgWQWFkobJ5Uk8p6kHWgdV5cm4bTbscjdbuaGnLjfod3jJS442PzDDDfdrWghSdlpRCk9UkpPXWqkulBpGN4Oi2XKxTu4js/ZyLgpbRkuyj30lxtZWl133ifcVsnX6Z10rX/APhZNZxjHoTE9sy7Pc5k1SGpL0VuQJCnSR3jXvpUA4Ouj4KGtHYlelBHzWAPR0xoUFcaFbFY45ZXmkvOOORyeqVNrV1WBtQ97R8D8Kx1q4YvtY2u3yUxETFv2wuv+3SZSHmochLoSEPE92NBQCQSBzdSdVKVKDR8hxK9yJd6lWu5tsfaUyI6toPOMKW002ELbLqPeb5iAeZPXprzrJ8L8bkYjg1ux6TIbkOxO8Bcb5uUhTiljXMSegUB1J8K2WlApSlApSlApSlApSlB/9k=" alt="Ofersa" style="height:36px; display:block;">
-        </div>
-    <div class="topbar-sep"></div>
-    <div class="topbar-title">Calculadora de Incentivos — Portafolio Acotado</div>
-</div>
+<!-- ══ TOPBAR ══ -->
+<header class="topbar">
+  <a class="topbar-logo" href="#" aria-label="Ofersa — Inicio">
+    <img class="topbar-logo-img" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCABcAQADASIAAhEBAxEB/8QAHQABAAIDAQEBAQAAAAAAAAAAAAcIBQYJBAMBAv/EAEMQAAEDBAADBQUDCAgHAQAAAAECAwQABQYRBxIhCBMxQVEUImGBkRVCcQkjMjdydaGzFiQzUoKSosEXU1VissPhsf/EABsBAQADAQADAAAAAAAAAAAAAAABBQYEAgMH/8QALREBAAEDAgMGBQUAAAAAAAAAAAECAwQFERIhQRNhkaHR8AYUMXHBQlGBseH/2gAMAwEAAhEDEQA/ALl0pSgV4rpd7Va0pVcrlEhhX6JfeSjf4bNaVxlzpzF4Ddvtik/akpJUFHr3KPDm15k9QPwNQXEs2UZItyfHgXG5FSjzv8il7P7R86ucHSJv2+1u1cNP9sxqvxHGJe+XsUcdfXu8PqtVbLrbLohTltuEWYlJ0osOpWB+OjXsqnzjd5x65p7xEy2TWyCNhTax8asHwdzheV2xyJcOUXSIB3hSNB1B6BevI+R/+1Ofo9WNR2turipNI+JKM278veo4K/KfSW/UpSqVpylKUClKUClKUClKUClKUClKUClKUClKUClKUClKUClKUClKUClKUFa+O61ucTZaHSQhDbKU/s8gJ/iTVh7FHhxLNDj29CERUMpDQQOnLrofn41FXaCxCTLLeT29pTpab7uYhPUhI6hfy2Qfl8a0DGeJOVY/ATAiS2noyBptEhvn7segPQ6+FamvFq1HCtdjMb08pj375sDbz6NG1S/OTTO1c7xMftvM+HPxhKfaMhRncMYnLaSZDEpKW3NdQlQOxv06D6VHHAWS8xxIhtNq0mQ0624PVIQVf/qRXiy3iJkGT2n7MuQh9x3iXPzTRSrY3rrv41pyM4awCcxfg62JLYUGW1J5islJSdDY8jXbZxK8fT67V6Y69eXP/VZlahazNYtZGPTMxvT05ztPPyXTpVG7n2tuITjpFvgWVhryLrClqP4+8BS0drjiJHlJXcbXYpzG/ebSytpRHwUFHR+RrFVRETtvu+n0VTVTvMbfdeSlRTwW464hxLUm3sKXar5y7NvkqBLmhsltXgsDr06HpvWqlaoeRSlKBSlKBSsLm2U2PDcck3/IZyIcGOOqj1UtXkhI8VKPkBVb7x2yLc1OUi04PJlRQfdckTwys/4QhQH1oLVUrWuF+VozjA7VlTcJcFNwaLgYUvnKNKKdb0N+HpWy0ClKUClKUClKUClKUClKUClKUClKUClKUAgEEEAg+INaVfeF2H3aUuUuC5EdWdqMVzkBPry9QPkK3Wle21fuWZ3t1TH2c+RiWMmnhvURVHfCAeNOCY3hGDP5BEdnlTDiQoOupUOXRJ6BI69PWqSX+6TL7eHJsgqU44rTaB15U+SRV5+3A8tngU+lG/ztxjoV+G1H/aqo9ly1xbvx7xWJMSlbSZK5HKobBU00txP+pAroyM+9ftU266t9ubjw9JxsS/VetURG8REfnx/CY+EHZPRPtLF34hXCZEW+gLRbYZSlbYPh3iyD1190Dp6+VbPm3ZFxOXbVqxK83G2z0jaEzFh5hfwOgFJ8uuz+FWWpXEtFDMQ4eXTh7kBfvaCxf4q9tFCthn0Uk+ZPr/8Aaudw1yUZVike5KATJSS1JSPAOJ1s/gdg/Oo97TFvYDdouiQA+VLYWfNSehH06/Wv57MshzmvcUklvTTgHkD7wP8At9K0d7Hs3NLpu0U7TT67T6sVi5mRY16vHuVcUVeXLePD6JprySrnbYi+SVcIjCvRx5KT/E1WHtecc7tYruvA8NmqhSm0A3Kc10cQVDYabPkdEEqHXqACNGoO4c8GOIvE+1v5DbG2lRe8UkSp8kpL6x4hOwSrr034b8/Gs3u2rotHfYkN95HebeQfvIUFD6ivpXNG1X3iHwZzl+EzKl2q4wnQmTDWoqZeHiOZP6K0kdQR5HYNX34aZnG4lcLmchtzXdPS47jT0fmH5p8ApUjfpvqCfIg1Irj+UCv8l2+43jrUj+otxlzFoSropxSuQE+ugk6/aPrWF7JnBrEs/sN1yDLnHXmWJQiRozb5a0QkKUtRHU/pJAHwNQ9xMwfLcEu8e35fD9llSGe+aT7Sh7aOYje0qIHUHpWV4a8KuImdWd664jbfaoTMgsOL9tbZ04EpURpSgT0UOtQOi2IY/bMWxqDj9nbW3AhN92wla+YhO99SfHxrISZMaK33kmQ0wj+84sJH1NaHxVzpnhdwn+3JrKXprLLUaNHUv+1kFOgkn0GiTrySapTj1p4ndoHM5W7kua80jvH35bqkRYqCdBIABCd9dJSNnRPkTUjodDnwJm/Y5saRrx7p1K9fQ16a5x8ROHnELghe7bcX56Y63lFUS4WyQrk5062k7AIOiOhGiN+PWrkdmTiW5xL4eJm3EtC829z2aeEdOc6BS5ry5h8thWqCUVutIVyrdQk+hUBRx5ltkvOOtoaA2VqUAkfOqO9u9x5jjLD7p5xsLszKiEqIG+8dH+1R5ecxzTPcfx/B7THucuFaYaWhCiIW4p9wEkuLSnZPiAN+GviajcdI4kmNLZ76JIakNE652lhSd/iK/p51plsuPOIbQPFS1AAfM1DfZBtd0xzgiiLfrbMtklqbJcWzKZU04E7B3yqAOqqHxa4lZVxUzRSHZjyILsrubdbkulLTaVK5U7HQFR6bUf4DpUjovHu1rkOd2xcobq965UPpUd/gDXsqhk/ss8WLdCRNhi0y3wnmLEacUupPptQSnf4GruYXbH7LiFntEl5b78OEyw64tZUVqSgAkk9T1BoMo860y2XHnENoHipagAPrXkbvFocd7pu6wVueHKmQkn6bqqPHXhBxaz3i9eBbJEl+wJU2uK7OmlEdoKQkqQhPno7/AEU/j1qL+JnZ7z/h/jbuST3LZMgxinv3IMhSlM7UEgkKSk62R1G6gdDKVTrsW8W72vKm+H2Q3F+dCltKNtW+orWw4hJUWwo9eQpCtA+BA141cWpClKUClKUClKUEe9ozFXcx4N3+zxWy5MSwJMZKU7KnGiFhIHqQCn51z34cZNIwvO7Rk8drvXLdJS6ponXOnwWnfltJI+ddSqp92n+zvck3aXmWAwFzI8lZdm2xhO3GlnZU42n7ySfujqCeg14QLS4PldjzPHY1+x+c1LiPpB90+82rQJQsfdUN9Qay8uTHhxXZUt9thhpBW464oJShI6kknoBXLGx3/JcVmuLs13udmk7057O+tlRI8lAEfxr1ZHnWZ5JH9mv2U3i5Mf8AJkS1rR/lJ1TcWx4v5zbszusc2OUiVaoiVJaeQdpdWT7yh8OgHyqRezlZlw8al3d0EGe6Etgj7iNjfzJV9KrX2WOF+a3+6InzIr1vxNXvvOyElJkfBkHxPqrw18dVeKFGYhxGYkZtLTDKAhtCfBKQNAVd39St1YNOPbjaevvvlmMTRb1Gq3M29VvH6f55eUcnMjjXIkSuMGXvSVKU6bzKSebyAdUAPkAB8q6Bdn1iNG4J4g3FCQ2bUys8o1tSk8yj/mJqqHbM4Y3PH88l5rCjLesl4cDrrjaOkeQR7yV+nMQVA+eyPLr6OBXaXdwPDGsXv1jfu0eGSITzL4QtCCd92oEdQCTo+Q6a6VSNO/jt8sR2uL9tdaSkOvWVpTuh4kOugE/IAfKpI/J8vSVYRksdalGMi5IU2D4BSmxza+SU1WfiRlmQcXOJLl2+z1uTZqkR4UGMkrKEDohseaj12T5kk9PCr2dnHh+5w54YQ7LLCPtOQsy5/KdgOrAHLv8A7UhKfkaCt/5QH9ZVh/dH/tXUmdgL9U94/fS/5LVRn+UB/WVYf3R/7V1JnYC/VPeP30v+S1TqNc/KGSHxAxCICoMKdkuKG+hUA2B/An61AvCfLeKmNQpzfDw3JMd9xJlGJbEydqAPLsltWuhPSri9rbhxM4gcOErszCn7zaHTJjNJ8XkEacbHxI0R8U686qBwV4r5JwkvspUKK3JhyVJTOt8kFHMUk6IPihY2RvRHXqD0oPZn1744Z5bWLdldvyC5RY7vfNINk7vlXoje0Ng+BNTV2C7LkFmuOVpu1ouNvYeZjFHtUdbQWoFzw5gN6B/jX492yoQjgs4FIU9rqlVyAT9e73/Cpy4DZ49xI4cxcnkxGYch2Q804w0oqSjlWQkbPU+7y7+O/Cgqr2+P1x279yM/znqljsC2uEzwxut3QwgTZN0Wy47r3ihDaClO/QFSj86ift8frjt37kZ/nPVMvYM/UxL/AHy9/LaoJ/dbQ60tpY2haSlQ9Qa578buBOXYHfJcu226VdcfK1Ox5kZsrLKN75XQOqSB5+B8d+IHQK5zGbfbZU+StKGIzK3nFE6CUpBJJ+QqqWNdsQNx1NZJiCnnkqOnoMgJCxvptCgdHWvvH5UkRhw17SHEXEZDTFynnIrakgLjzztwJ8+V39IH9rmHwq8+CZVasyw+BlFocJgzWu8Tz9FNkEhSVfFJBB/CudXG3M7ZxA4gSMhs2PoszLzaEdwjRU6sb24rlAHMd+XoKul2dsKvFi7PLGPXMuQ7jcI8lwoV0VH77m5AfQgEEjyJNIEA8bO0xld7v0m0YJLXaLQ06Wm5LKAZErR1zcx3ygnwCeuvE+Va/fcA4/z8HuORZNOvaLM1FVJkNXC7K2tsdTtkqJ8vAgVFPJPxTL0pmxC3OtM4FyO8n77a9lJHpsVYPi32nHM3wSVimO4xKhSbk13Up110O8rfitKEgddgEbOtDfT0CK+zOSOPOIEHX9fA/wBKq6S1zY7NJA474gT/ANQT/wCJrpPSApSlSFKUoFKUoFKUoNcyjA8Lycld/wAXtNxcI13r0VJc18F65h9ax+P8KeG9hfEi14XZmXknaXFxg4tJ9QpeyPlW50oPxICUhKQAB0AHlX7SlB8ZsWNNiuRJkdmTHdTyuNOoC0LHoQehFRbd+zrwhuUxUpzFEx1rUVKTGkutI2fRKVaH4DVSXervarJD9svFyiW+MVcodkvJbSVaJ1snx0D0+FeO3ZXjFyMj7PyG1S/ZWQ+/3MtC+6bI3zq0eideZ6UGLwThtg+EcysZxyHBeUNKf0VvEenOolWvgDqttrF27IrDcmo7sC8wJSJLq2WFNSEqDi0gqUlOj1IAJI8gK+T+V4wx7H32Q2tv246i80pA773uX3OvXr06efSgxOc8MsGze4MXDKcfZuUlhruWnFuuJKUbJ17qh5k1kMHw3GsJtjtsxe1N22I88X3G0LUoKWQAT7xJ8Ej6VkWLxaX7u9aGLlEduLCeZ6Kh5JdbHu9VJ3sD3k+P94VhL/neP2nJbTjhmMSbpcZ6YXsrLyC4wS046FrTvYTpvX+JPrQbTWk5vwn4e5pK9ryHF4UmWRoyUAtOq/aUggq+e62a3XuzXKbKhW+6wpcmIeWQyy8la2jsjSgDsdQR+INYCFxAscnKMgs5kRo7GP8AIifLflIQlDi0oUEhO960sDmOhzAp6mg1KH2b+D0Zzn/osXvg7NeUP/OpLxyxWbHLWi12G1xLbCQdpZjNBCd+ZOvEnXiepr5/0kx7uYD323bu7uKuWEr2lGpCtgaR1947IGh61815ZjCIb8xeQ2sRo7oZed9qRyocI2EE76K11140GGzfhbgWa3Zu65PjrFymtshhDq3XEkIBJA0lQHio/WsthWI47hdoXacYtjduhLeLymkLUoFZABO1EnwSPpX43l+OOZMxjjd2iruMiGJrLaXEnvGTvSknfXoCenkN19GMqxl+2yLkzkFrchRlhD8hMpBbbUdaClb0N7GvXYoMs+00+yth9tDrTiSlaFpBSpJ6EEHxFRhe+z7wju0pcl7EWI7i1cyvZXnGU7+CUqCR8hW7HKbQ2ua7IlMR7fEaZWuc5IbDKi6NpA97fgUnZAB5hrfXWWhSo02I1MhyGpEd5AW060sKQtJ6ggjoQaDRcM4McNMRnouFlxWIiY3/AGb76lPrQfVPOTyn4jrUgUpQaNxA4ScPs7lpm5JjrEiYBy+0tLUy6oeQUpBHN896r+cO4QcOcSZkt2XGYrS5TKmHnnVKddU2oEKSFqJKQQSDrW63ulBHth4KcMLDeYl4tOJxos+I4HWHkvukoUPA6KtVIVKUClKUClKUClKUClKUClKUClKUGGySym7T7DI5mgi2XL2xaVp3zjuHmwB8QXQflWnI4eXWDb4yLFdIdtmRrLcLey82z0Q7IeQ42sDXgkoPzNSVSghy8YPfbZik9qDt3IJ9/Ym2x1tx6WISwy0ytbrzvvcvdodKlHXRfKkb0KzF+4czjGmWywv25m3XGxx7K+ZSVFyK00XB3jWv0lFLqtAkaUEq2eoqS6UGuYpji7Lf8nui3WnPtme3JRyp95CERmWeVR8+raj/AIq1IcOr0jI7c4ibbDa4OTv38OKQv2lwvNupLR6cvul06VvqlKRoa6yhSgj7hjw/Xic1Lsru5LkaO5FjSxcJCyppbgWQWFkobJ5Uk8p6kHWgdV5cm4bTbscjdbuaGnLjfod3jJS442PzDDDfdrWghSdlpRCk9UkpPXWqkulBpGN4Oi2XKxTu4js/ZyLgpbRkuyj30lxtZWl133ifcVsnX6Z10rX/APhZNZxjHoTE9sy7Pc5k1SGpL0VuQJCnSR3jXvpUA4Ouj4KGtHYlelBHzWAPR0xoUFcaFbFY45ZXmkvOOORyeqVNrV1WBtQ97R8D8Kx1q4YvtY2u3yUxETFv2wuv+3SZSHmochLoSEPE92NBQCQSBzdSdVKVKDR8hxK9yJd6lWu5tsfaUyI6toPOMKW002ELbLqPeb5iAeZPXprzrJ8L8bkYjg1ux6TIbkOxO8Bcb5uUhTiljXMSegUB1J8K2WlApSlApSlApSlApSlB/9k=" alt="Ofersa">
+  </a>
+  <div class="topbar-divider"></div>
+  <span class="topbar-badge">
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+    Portafolio Acotado
+  </span>
+  <span class="topbar-title">Calculadora de Incentivos</span>
+  <div class="topbar-right">
+    <div class="sync-status" id="gsStatus" aria-live="polite">
+      <div class="sync-dot" id="gsDot" role="status"></div>
+      <span id="gsStatusText">Iniciando…</span>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="gsReloadBtn" style="display:none;"
+      onclick="cargarDesdeSheets()" aria-label="Sincronizar con Google Sheets">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+      Sincronizar
+    </button>
+  </div>
+</header>
 
-<div class="page">
+<main class="page" id="main">
 
-    <!-- ══ SHEETS CONFIG (collapsed by default) ══ -->
-    <div class="card" id="sheetsCard">
-        <div class="card-head" onclick="toggleCard('sheetsCard')" id="sheetsCardHead">
-            <span class="step-pill green">SHEETS</span>
-            <h2>Conectar Google Sheets</h2>
-            <div class="card-head-right">
-                <div class="gs-status" id="gsStatus">
-                    <div class="gs-status-dot" id="gsDot"></div>
-                    <span id="gsStatusText">Sin configurar</span>
-                </div>
-                <div class="collapse-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </div>
-            </div>
+  <!-- ── PAGE HEADER ── -->
+  <div class="page-header animate-in">
+    <h1>Calculadora de Incentivos</h1>
+    <p>Portafolio Acotado · Carga un archivo Excel, configura los porcentajes y exporta el reporte.</p>
+  </div>
+
+  <!-- ══ SHEETS CONFIG (collapsed) ══ -->
+  <div class="section" id="sheetsCard">
+    <div class="section-head" onclick="toggleCard('sheetsCard')" id="sheetsCardHead" role="button" aria-expanded="false">
+      <span class="step-badge green">SHEETS</span>
+      <h2>Conectar Google Sheets</h2>
+      <div class="section-head-right">
+        <div class="chevron" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
-        <div class="card-body" id="sheetsCardBody">
-            <button class="sub-toggle" id="instrToggle" onclick="toggleInstr(event)">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                ¿Cómo configurar? (ver instrucciones)
+      </div>
+    </div>
+    <div class="section-body" id="sheetsCardBody">
+      <button class="instr-toggle" id="instrToggle" onclick="toggleInstr(event)" aria-expanded="false">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Ver instrucciones de configuración
+      </button>
+      <div id="instrPanel" style="display:none;" aria-hidden="true">
+        <div class="instr-box">
+          <h4>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Obtener API Key y Sheet ID
+          </h4>
+          <ol class="instr-list">
+            <li>Ve a <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">console.cloud.google.com</a> y crea o usa un proyecto existente.</li>
+            <li>En <strong>APIs y servicios → Biblioteca</strong>, activa <strong>"Google Sheets API"</strong>.</li>
+            <li>En <strong>Credenciales → + Crear credenciales → Clave de API</strong>, copia la clave generada.</li>
+            <li>En la URL de tu Sheet: <code>spreadsheets/d/<strong>ID</strong>/edit</code></li>
+            <li>Asegúrate de que la hoja tenga acceso <strong>"Cualquier persona con el enlace"</strong>.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="gs-panel">
+        <p class="gs-panel-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Configuración de conexión
+        </p>
+        <div class="gs-grid">
+          <div>
+            <label class="field-label" for="gsApiKey">API Key de Google</label>
+            <input type="password" class="field" id="gsApiKey" placeholder="AIzaSy…" autocomplete="off" aria-label="API Key de Google">
+            <p class="field-help">Google Cloud Console → Credenciales</p>
+          </div>
+          <div>
+            <label class="field-label" for="gsSheetId">Sheet ID</label>
+            <input type="text" class="field" id="gsSheetId" placeholder="1BxiMVs0XRA5n…" aria-label="Sheet ID">
+            <p class="field-help">ID largo en la URL de tu Google Sheet</p>
+          </div>
+          <div>
+            <label class="field-label" for="gsSheetName">Pestaña</label>
+            <input type="text" class="field" id="gsSheetName" value="Hoja 1" aria-label="Nombre de la pestaña">
+          </div>
+        </div>
+        <div class="gs-grid-2">
+          <div>
+            <label class="field-label" for="gsColMarca">Columna Descripción</label>
+            <input type="text" class="field" id="gsColMarca" value="Descripción" aria-label="Columna de descripción/marca">
+          </div>
+          <div>
+            <label class="field-label" for="gsColPct">Columna % Bonificación</label>
+            <input type="text" class="field" id="gsColPct" value="% Bonificacion" aria-label="Columna de porcentaje">
+          </div>
+          <div class="gs-btn-group">
+            <button class="btn btn-primary" onclick="cargarDesdeSheets()" id="gsLoadBtn" aria-label="Cargar marcas desde Google Sheets">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+              Cargar
             </button>
-            <div id="instrPanel" style="display:none; margin-bottom:16px;">
-                <div class="instructions-box">
-                    <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Pasos para obtener tu API Key y Sheet ID</h4>
-                    <ol class="steps-list">
-                        <li>Ve a <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a> y crea un proyecto nuevo (o usa uno existente).</li>
-                        <li>En el menú lateral, entra a <strong>APIs y servicios → Biblioteca</strong>. Busca <strong>"Google Sheets API"</strong> y actívala.</li>
-                        <li>Ve a <strong>APIs y servicios → Credenciales</strong>. Haz clic en <strong>"+ Crear credenciales" → Clave de API</strong>. Copia la clave generada.</li>
-                        <li>Abre tu Google Sheet. En la URL verás el <strong>Sheet ID</strong>: <code>spreadsheets/d/<strong>ID_AQUI</strong>/edit</code></li>
-                        <li>Asegúrate de que la hoja esté compartida con <strong>"Cualquier persona con el enlace puede ver"</strong>.</li>
-                        <li>Escribe el nombre exacto de la pestaña, por ejemplo: <code>Hoja1</code>.</li>
-                        <li>Pega los valores abajo y haz clic en <strong>"Cargar desde Sheets"</strong>.</li>
-                    </ol>
-                </div>
-            </div>
-            <div class="gs-panel">
-                <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Configuración de conexión</h4>
-                <div class="gs-fields">
-                    <div class="gs-field-row">
-                        <div class="gs-field-group" style="flex:2;">
-                            <label>API Key de Google</label>
-                            <input type="password" class="field" id="gsApiKey" placeholder="AIzaSy..." autocomplete="off">
-                            <div class="gs-help">Google Cloud Console → APIs y servicios → Credenciales</div>
-                        </div>
-                        <div class="gs-field-group" style="flex:2;">
-                            <label>Sheet ID</label>
-                            <input type="text" class="field" id="gsSheetId" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74...">
-                            <div class="gs-help">ID largo en la URL de tu Google Sheet</div>
-                        </div>
-                        <div class="gs-field-group" style="flex:1;">
-                            <label>Nombre de la pestaña</label>
-                            <input type="text" class="field" id="gsSheetName" value="Hoja 1">
-                        </div>
-                    </div>
-                    <div class="gs-field-row">
-                        <div class="gs-field-group" style="flex:1;">
-                            <label>Columna "Descripción" (marca)</label>
-                            <input type="text" class="field" id="gsColMarca" value="Descripción">
-                        </div>
-                        <div class="gs-field-group" style="flex:1;">
-                            <label>Columna "% Bonificación"</label>
-                            <input type="text" class="field" id="gsColPct" value="% Bonificacion">
-                        </div>
-                        <div class="gs-field-group" style="flex:1; justify-content:flex-end;">
-                            <label>&nbsp;</label>
-                            <button class="btn btn-primary" onclick="cargarDesdeSheets()" id="gsLoadBtn" style="margin-top:2px;">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
-                                Cargar desde Sheets
-                            </button>
-                            <button class="btn btn-ghost" onclick="limpiarConfig()" style="margin-top:2px;" title="Borrar configuración guardada">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                                Limpiar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div id="gsNotice"></div>
+            <button class="btn btn-ghost" onclick="limpiarConfig()" aria-label="Limpiar configuración" title="Re-sincronizar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
+          </div>
         </div>
+      </div>
+      <div id="gsNotice" aria-live="polite"></div>
     </div>
+  </div>
 
-    <!-- ══ PASO 01: UPLOAD (open by default) ══ -->
-    <div class="card" id="uploadCard">
-        <div class="card-head open" onclick="toggleCard('uploadCard')" id="uploadCardHead">
-            <span class="step-pill">PASO 01</span>
-            <h2>Cargar Archivo Excel</h2>
-            <div class="card-head-right">
-                <span style="font-size:11px;color:var(--dim);">.xlsx / .xls</span>
-                <div class="collapse-icon" style="transform:rotate(180deg);">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </div>
-            </div>
+  <!-- ══ PASO 01: UPLOAD ══ -->
+  <div class="section animate-in" id="uploadCard" style="animation-delay:.05s">
+    <div class="section-head open" onclick="toggleCard('uploadCard')" id="uploadCardHead" role="button" aria-expanded="true">
+      <span class="step-badge">01</span>
+      <h2>Cargar Archivo Excel</h2>
+      <div class="section-head-right">
+        <span style="font-size:11px;color:var(--text-muted);">.xlsx · .xls</span>
+        <div class="chevron" style="transform:rotate(180deg)" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
-        <div class="card-body" id="uploadCardBody" style="display:block;">
-            <div class="notice info">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span>Solo se procesarán pedidos cuyo número comience con <strong>PL</strong>. Columnas requeridas: Código Cliente, Nombre Cliente, Marca, Num Pedido, Total Venta.</span>
-            </div>
-            <div class="upload-zone" id="dropArea">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <h3>Arrastra tu archivo aquí</h3>
-                <p>o haz clic para seleccionar</p>
-                <div class="upload-pill">.xlsx &nbsp;·&nbsp; .xls</div>
-                <input type="file" id="fileInput" accept=".xlsx,.xls">
-            </div>
-            <div id="fileInfo"></div>
-            <div id="resetBtn" style="margin-top:14px; display:none;">
-                <button class="btn btn-ghost" onclick="cargarNuevoArchivo()">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
-                    Limpiar y cargar nuevo archivo
-                </button>
-            </div>
-        </div>
+      </div>
     </div>
-
-    <!-- ══ PASO 02: BRANDS (open by default) ══ -->
-    <div class="card" id="brandsCard">
-        <div class="card-head open" onclick="toggleCard('brandsCard')" id="brandsCardHead">
-            <span class="step-pill">PASO 02</span>
-            <h2>Porcentajes de Incentivo por Marca</h2>
-            <div class="card-head-right">
-                <button class="btn btn-ghost btn-sm" id="gsReloadBtn" style="display:none;"
-                    onclick="event.stopPropagation(); cargarDesdeSheets()">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
-                    Sincronizar Sheets
-                </button>
-                <div class="collapse-icon" style="transform:rotate(180deg);">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </div>
-            </div>
+    <div class="section-body" id="uploadCardBody" style="display:block;">
+      <div class="notice info" role="note">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Solo se procesarán pedidos cuyo número comience con <strong>PL</strong>. Columnas requeridas: Código Cliente, Nombre Cliente, Marca, Num Pedido, Total Venta.</span>
+      </div>
+      <div class="upload-zone" id="dropArea" role="button" tabindex="0" aria-label="Zona de carga de archivo Excel. Haz clic o arrastra un archivo aquí.">
+        <div class="upload-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
         </div>
-        <div class="card-body" id="brandsCardBody" style="display:block;">
-            <div style="margin-bottom:16px;">
-                <button class="toggle-link" id="toggleBulk" onclick="toggleBulkPanel()">▶ Edición masiva de porcentajes</button>
-            </div>
-            <div id="bulkPanel" class="bulk-panel" style="display:none;">
-                <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>Editar todos los porcentajes a la vez</h4>
-                <div class="bulk-grid" id="bulkGrid"></div>
-                <div class="bulk-actions">
-                    <div class="bulk-set-all">
-                        <span>Aplicar mismo % a todas:</span>
-                        <input type="number" id="bulkAllPct" value="2" min="0" max="100" step="0.1">
-                        <span>%</span>
-                        <button class="btn btn-outline btn-sm" onclick="aplicarATodas()">Aplicar a todas</button>
-                    </div>
-                    <button class="btn btn-primary btn-sm" onclick="guardarBulk()" style="margin-left:auto;" id="bulkSaveBtn">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                        Guardar cambios
-                    </button>
-                </div>
-            </div>
-            <div class="add-row">
-                <input type="text" class="field field-brand" id="nuevaMarcaNombre" placeholder="Nombre de la marca">
-                <input type="number" class="field field-pct" id="nuevaMarcaPorcentaje" value="2" min="0" max="100" step="0.1">
-                <span style="font-size:12px;color:var(--muted)">%</span>
-                <button class="btn btn-outline" onclick="agregarMarca()">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Agregar Marca
-                </button>
-            </div>
-            <table class="brands-table">
-                <thead><tr><th>Marca</th><th>% Incentivo</th><th>Origen</th><th style="width:90px;text-align:center;">Acción</th></tr></thead>
-                <tbody id="incentivosBody">
-                </tbody>
-            </table>
-            <div class="divider"></div>
-            <div class="action-row">
-                <button class="btn btn-primary" id="processBtn" disabled>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                    Procesar Datos
-                </button>
-                <span class="status-msg" id="statusMessage">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    Primero carga un archivo en el Paso 01
-                </span>
-            </div>
+        <h3>Arrastra tu archivo aquí</h3>
+        <p>o haz clic para seleccionar desde tu equipo</p>
+        <div class="upload-pill" aria-hidden="true">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          .xlsx &nbsp;·&nbsp; .xls
         </div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" aria-label="Seleccionar archivo Excel">
+      </div>
+      <div id="fileInfo" aria-live="polite"></div>
+      <div id="resetBtn" style="margin-top:var(--space-4);display:none;">
+        <button class="btn btn-ghost btn-sm" onclick="cargarNuevoArchivo()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+          Limpiar y cargar nuevo archivo
+        </button>
+      </div>
     </div>
+  </div>
 
-    <!-- LOADING -->
-    <div class="loading-wrap" id="loading"><div class="spinner"></div><p>Procesando datos…</p></div>
-
-    <!-- ══ PASO 03: RESULTS ══ -->
-    <div class="card" id="resultsCard" style="display:none;">
-        <div class="card-head static">
-            <span class="step-pill">PASO 03</span>
-            <h2>Resultados</h2>
-            <div class="card-head-right"><span id="resultSubtitle" style="font-size:12px;color:var(--muted);">—</span></div>
+  <!-- ══ PASO 02: MARCAS ══ -->
+  <div class="section animate-in" id="brandsCard" style="animation-delay:.1s">
+    <div class="section-head open" onclick="toggleCard('brandsCard')" id="brandsCardHead" role="button" aria-expanded="true">
+      <span class="step-badge">02</span>
+      <h2>Porcentajes de Incentivo por Marca</h2>
+      <div class="section-head-right">
+        <div class="chevron" style="transform:rotate(180deg)" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
-        <div class="card-body always-open">
-            <div class="stats-grid" id="statsArea"></div>
-            <div class="results-scroll"><table class="results-table" id="previewTable"></table></div>
-            <div class="divider"></div>
-            <div class="download-group">
-                <div>
-                    <button class="btn btn-primary" id="downloadBtn">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Reporte de Incentivos (.xlsx)
-                    </button>
-                    <div style="font-size:11px;color:var(--muted);margin-top:4px;padding-left:2px;">Detalle por cliente y marca con subtotales</div>
-                </div>
-                <div>
-                    <button class="btn btn-green" id="downloadNotaBtn">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                        Nota de Crédito (.xlsx)
-                    </button>
-                    <div style="font-size:11px;color:var(--muted);margin-top:4px;padding-left:2px;">Resumen por cliente: Código, Monto, Observación</div>
-                </div>
-                <div style="margin-left:auto;">
-                    <button class="btn btn-ghost" onclick="cargarNuevoArchivo()">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
-                        Cargar otro archivo
-                    </button>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
+    <div class="section-body" id="brandsCardBody" style="display:block;">
+      <div style="margin-bottom:var(--space-4);">
+        <button class="toggle-link" id="toggleBulk" onclick="toggleBulkPanel()" aria-expanded="false">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          Edición masiva de porcentajes
+        </button>
+      </div>
+      <div id="bulkPanel" class="bulk-panel" style="display:none;" aria-hidden="true">
+        <h4>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          Editar todos los porcentajes a la vez
+        </h4>
+        <div class="bulk-grid" id="bulkGrid"></div>
+        <div class="bulk-actions">
+          <div class="bulk-set-all">
+            <span>Aplicar a todas:</span>
+            <input type="number" id="bulkAllPct" value="2" min="0" max="100" step="0.1" aria-label="Porcentaje para aplicar a todas las marcas">
+            <span>%</span>
+            <button class="btn btn-outline btn-sm" onclick="aplicarATodas()">Aplicar</button>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="guardarBulk()" style="margin-left:auto;" id="bulkSaveBtn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Guardar cambios
+          </button>
+        </div>
+      </div>
+      <div class="add-row" role="form" aria-label="Agregar nueva marca">
+        <input type="text" class="field field-brand" id="nuevaMarcaNombre" placeholder="Nombre de la marca" aria-label="Nombre de la marca">
+        <input type="number" class="field field-pct" id="nuevaMarcaPorcentaje" value="2" min="0" max="100" step="0.1" aria-label="Porcentaje de incentivo">
+        <span style="font-size:12px;color:var(--text-muted);" aria-hidden="true">%</span>
+        <button class="btn btn-outline" onclick="agregarMarca()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Agregar Marca
+        </button>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;">
+        <table class="brands-table" aria-label="Tabla de marcas con porcentajes de incentivo">
+          <thead>
+            <tr>
+              <th scope="col">Marca</th>
+              <th scope="col">% Incentivo</th>
+              <th scope="col">Origen</th>
+              <th scope="col" style="width:90px;text-align:center;">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="incentivosBody"></tbody>
+        </table>
+      </div>
+      <div class="divider"></div>
+      <div class="action-row">
+        <button class="btn btn-primary" id="processBtn" disabled aria-label="Procesar datos del archivo cargado">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Procesar Datos
+        </button>
+        <span class="status-msg" id="statusMessage" aria-live="polite">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Primero carga un archivo en el Paso 01
+        </span>
+      </div>
+    </div>
+  </div>
 
-</div>
+  <!-- ══ LOADING ══ -->
+  <div class="loading-wrap" id="loading" role="status" aria-live="polite" aria-label="Procesando datos">
+    <div class="spinner-ring" aria-hidden="true"></div>
+    <p>Procesando datos…</p>
+  </div>
 
-<div class="footer"><strong>OFERSA</strong> &nbsp;·&nbsp; Calculadora de Incentivos — Portafolio Acotado v1.0 &nbsp;·&nbsp; Costa Rica 🇨🇷</div>
+  <!-- ══ PASO 03: RESULTADOS ══ -->
+  <div class="section animate-in" id="resultsCard" style="display:none;">
+    <div class="section-head static" id="resultsCardHead">
+      <span class="step-badge">03</span>
+      <h2>Resultados</h2>
+      <div class="section-head-right">
+        <span id="resultSubtitle" style="font-size:12px;color:var(--text-muted);">—</span>
+      </div>
+    </div>
+    <div class="section-body always-open">
+      <div class="stats-grid" id="statsArea" aria-label="Resumen de resultados"></div>
+      <div class="results-scroll" role="region" aria-label="Tabla de resultados de incentivos">
+        <table class="results-table" id="previewTable" aria-label="Detalle de incentivos por cliente y marca"></table>
+      </div>
+      <div class="divider"></div>
+      <div class="download-group">
+        <div class="download-card">
+          <button class="btn btn-primary" id="downloadBtn" aria-label="Descargar reporte completo de incentivos en Excel">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Reporte de Incentivos (.xlsx)
+          </button>
+          <p class="dc-desc">Detalle por cliente y marca con subtotales</p>
+        </div>
+        <div class="download-card">
+          <button class="btn btn-green" id="downloadNotaBtn" aria-label="Descargar nota de crédito en Excel">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Nota de Crédito (.xlsx)
+          </button>
+          <p class="dc-desc">Resumen por cliente: Código, Monto, Observación</p>
+        </div>
+        <div style="margin-left:auto;align-self:flex-end;">
+          <button class="btn btn-ghost" onclick="cargarNuevoArchivo()" aria-label="Volver al inicio para cargar otro archivo">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+            Cargar otro archivo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <strong>OFERSA / COFERSA</strong> &nbsp;·&nbsp; Calculadora de Incentivos — Portafolio Acotado &nbsp;·&nbsp; Costa Rica
+</footer>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+</script>
+
+<script>
+  // ── Credenciales fijas Portafolio Acotado ──
+  const DEFAULT_API_KEY    = 'AIzaSyB1R6VwVZktw_p-3_lGPZpiZhBDxfCmnpQ';
+  const DEFAULT_SHEET_ID   = '1L7mFYLyivZxbMj4C4N175O18HMpDt4xGHFgnsKnDVTA';
+  const DEFAULT_SHEET_NAME = 'Hoja 1';
+  const LS_KEY = 'ofersa_gs_config_portafolio_acotado';
+
+  function cargarConfig() {
+    document.getElementById('gsApiKey').value    = DEFAULT_API_KEY;
+    document.getElementById('gsSheetId').value   = DEFAULT_SHEET_ID;
+    document.getElementById('gsSheetName').value = DEFAULT_SHEET_NAME;
+    document.getElementById('gsColMarca').value  = 'Descripción';
+    document.getElementById('gsColPct').value    = '% Bonificacion';
+    document.getElementById('incentivosBody').innerHTML = '';
+    setTimeout(() => cargarDesdeSheets(), 600);
+  }
+
+  function guardarConfig() {}  // credenciales fijas
+
+  function limpiarConfig() {
+    document.getElementById('gsNotice').innerHTML = '';
+    document.getElementById('incentivosBody').innerHTML = '';
+    setGsStatus('', 'Re-sincronizando…');
+    document.getElementById('gsReloadBtn').style.display = 'none';
+    cargarDesdeSheets();
+  }
+
+  document.addEventListener('DOMContentLoaded', cargarConfig);
+</script>
 
 <script>
     let excelData = null, processedData = null;
@@ -1234,5 +1821,6 @@
     });
   }
 </script>
+
 </body>
 </html>
