@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#009ee3">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Portafolio Acotado">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <title>Calculadora de Incentivos — Portafolio Acotado</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
+    /* ══ PERSISTENCIA localStorage ══ */
+    const LS_KEY = 'ofersa_gs_config_portafolio_acotado';
+
+    function guardarConfig() {
+        const cfg = {
+            apiKey:    document.getElementById('gsApiKey').value,
+            sheetId:   document.getElementById('gsSheetId').value,
+            sheetName: document.getElementById('gsSheetName').value,
+            colMarca:  document.getElementById('gsColMarca').value,
+            colPct:    document.getElementById('gsColPct').value,
+        };
+        try { localStorage.setItem(LS_KEY, JSON.stringify(cfg)); } catch(e) {}
+    }
+
+    // ── Credenciales fijas Portafolio Acotado ──
+    const DEFAULT_API_KEY    = 'AIzaSyB1R6VwVZktw_p-3_lGPZpiZhBDxfCmnpQ';
+    const DEFAULT_SHEET_ID   = '1L7mFYLyivZxbMj4C4N175O18HMpDt4xGHFgnsKnDVTA';
+    const DEFAULT_SHEET_NAME = 'Hoja 1';
+
+    function cargarConfig() {
+        document.getElementById('gsApiKey').value    = DEFAULT_API_KEY;
+        document.getElementById('gsSheetId').value   = DEFAULT_SHEET_ID;
+        document.getElementById('gsSheetName').value = DEFAULT_SHEET_NAME;
+        document.getElementById('gsColMarca').value  = 'Descripción';
+        document.getElementById('gsColPct').value    = '% Bonificacion';
+        // Limpiar marcas hardcodeadas y auto-sincronizar desde Sheets
+        document.getElementById('incentivosBody').innerHTML = '';
+        setTimeout(() => cargarDesdeSheets(), 600);
+    }
+
+    function limpiarConfig() {
+        document.getElementById('gsNotice').innerHTML = '';
+        document.getElementById('incentivosBody').innerHTML = '';
+        setGsStatus('', 'Re-sincronizando…');
+        document.getElementById('gsReloadBtn').style.display = 'none';
+        cargarDesdeSheets();
+    }
+
+    // Load config on page ready
+    document.addEventListener('DOMContentLoaded', cargarConfig);
+
+</script>
+    <style>
+        :root {
+            --cyan:        #009ee3;
+            --cyan-dark:   #007bb5;
+            --cyan-light:  #e5f5fc;
+            --cyan-mid:    #b3e0f7;
+            --white:       #ffffff;
+            --bg:          #f4f6f8;
+            --surface:     #ffffff;
+            --border:      #d0d7de;
+            --border-dark: #b0bcc8;
+            --text:        #1a1a1a;
+            --muted:       #555e6b;
+            --dim:         #8a95a3;
+            --danger:      #d93025;
+            --danger-bg:   #fce8e6;
+            --success-bg:  #e6f4ea;
+            --success:     #1a7336;
+            --warn-bg:     #fef7e0;
+            --warn:        #7a5c00;
+            --radius:      8px;
+            --radius-sm:   5px;
+            --shadow:      0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md:   0 4px 12px rgba(0,0,0,0.10);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* ── TOPBAR ── */
+        .topbar {
+            background: var(--cyan);
+            height: 66px;
+            display: flex;
+            align-items: center;
+            padding: 0 32px;
+            gap: 16px;
+            box-shadow: var(--shadow-md);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .topbar-logo {
+            background: white;
+            border-radius: 6px;
+            padding: 4px 12px;
+            display: flex;
+            align-items: center;
+            height: 50px;
+        }
+
+        .topbar-logo img {
+            height: 30px;
+            display: block;
+        }
+
+        /* SVG Ofersa logo drawn inline as fallback */
+        .topbar-logo-svg {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .topbar-sep { width: 1px; height: 26px; background: rgba(255,255,255,0.35); }
+        .topbar-title { font-size: 13px; color: rgba(255,255,255,0.90); font-weight: 600; }
+
+        /* ── PAGE ── */
+        .page { max-width: 960px; margin: 0 auto; padding: 28px 24px 72px; }
+
+        /* ── CARDS ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .card-head {
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            background: #fafbfc;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s;
+        }
+
+        .card-head:hover { background: #f0f3f7; }
+        .card-head.static { cursor: default; }
+        .card-head.static:hover { background: #fafbfc; }
+
+        .step-pill {
+            background: var(--cyan); color: white;
+            font-weight: 700; font-size: 11px;
+            padding: 3px 10px; border-radius: 100px;
+            letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0;
+        }
+
+        .step-pill.green { background: #1a7336; }
+
+        .card-head h2 { font-size: 14px; font-weight: 700; color: var(--text); flex: 1; }
+        .card-head-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+        .collapse-icon {
+            width: 20px; height: 20px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--dim); flex-shrink: 0; transition: transform 0.22s;
+        }
+
+        .card-head.open .collapse-icon { transform: rotate(180deg); }
+
+        .card-body { padding: 24px; display: none; }
+        .card-body.always-open { display: block; }
+
+        /* ── NOTICES ── */
+        .notice {
+            display: flex; align-items: flex-start; gap: 9px;
+            padding: 10px 14px; border-radius: var(--radius-sm);
+            font-size: 13px; line-height: 1.5; margin-bottom: 16px;
+        }
+
+        .notice svg { flex-shrink: 0; margin-top: 1px; }
+        .notice.info    { background: var(--cyan-light); border: 1px solid var(--cyan-mid); color: #005f8a; }
+        .notice.success { background: var(--success-bg); border: 1px solid #a8d5b5; color: var(--success); }
+        .notice.warning { background: var(--warn-bg);    border: 1px solid #f5d87a;   color: var(--warn); }
+        .notice.error   { background: var(--danger-bg);  border: 1px solid #f5b8b5;   color: var(--danger); }
+
+        /* ── GOOGLE SHEETS PANEL ── */
+        .gs-panel { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 20px; }
+        .gs-panel h4 { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .gs-fields { display: flex; flex-direction: column; gap: 12px; }
+        .gs-field-row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+        .gs-field-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 180px; }
+        .gs-field-group label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .gs-field-group .field { width: 100%; }
+        .gs-help { font-size: 11px; color: var(--dim); margin-top: 2px; line-height: 1.4; }
+        .gs-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+        .gs-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+        .gs-status-dot.ok      { background: #1a7336; box-shadow: 0 0 0 2px #a8d5b5; }
+        .gs-status-dot.error   { background: var(--danger); box-shadow: 0 0 0 2px #f5b8b5; }
+        .gs-status-dot.loading { background: var(--cyan); box-shadow: 0 0 0 2px var(--cyan-mid); animation: pulse 1s ease-in-out infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        /* ── INSTRUCTIONS ── */
+        .instructions-box { background: white; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px 20px; margin-bottom: 20px; }
+        .instructions-box h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--text); display: flex; align-items: center; gap: 6px; }
+        .steps-list { list-style: none; padding: 0; counter-reset: step; }
+        .steps-list li { counter-increment: step; display: flex; align-items: flex-start; gap: 10px; font-size: 12px; color: var(--muted); margin-bottom: 8px; line-height: 1.5; }
+        .steps-list li::before { content: counter(step); background: var(--cyan); color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+        .steps-list li code { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-family: 'Courier New', monospace; font-size: 11px; color: var(--text); }
+        .steps-list li a { color: var(--cyan); }
+
+        .sub-toggle { background: none; border: none; font-family: Arial, sans-serif; font-size: 13px; color: var(--cyan); cursor: pointer; padding: 0; text-decoration: underline; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+        .sub-toggle:hover { color: var(--cyan-dark); }
+
+        /* ── UPLOAD ── */
+        .upload-zone { border: 2px dashed var(--border-dark); border-radius: var(--radius); padding: 44px 24px; text-align: center; cursor: pointer; transition: border-color 0.18s, background 0.18s; background: var(--bg); }
+        .upload-zone:hover, .upload-zone.dragover { border-color: var(--cyan); background: var(--cyan-light); }
+        .upload-zone svg { width: 36px; height: 36px; stroke: var(--dim); margin-bottom: 12px; transition: stroke 0.18s; display: block; margin-left: auto; margin-right: auto; }
+        .upload-zone:hover svg, .upload-zone.dragover svg { stroke: var(--cyan); }
+        .upload-zone h3 { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .upload-zone p  { font-size: 13px; color: var(--muted); }
+        .upload-pill { display: inline-block; margin-top: 12px; padding: 4px 12px; border-radius: 100px; background: white; border: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+        input[type="file"] { display: none; }
+
+        /* ── BUTTONS ── */
+        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: var(--radius-sm); font-family: Arial, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; }
+        .btn-primary { background: var(--cyan); color: white; }
+        .btn-primary:hover:not(:disabled) { background: var(--cyan-dark); box-shadow: 0 2px 8px rgba(0,158,227,0.4); }
+        .btn-primary:disabled { background: var(--border); color: var(--dim); cursor: not-allowed; }
+        .btn-outline { background: white; color: var(--cyan); border: 1.5px solid var(--cyan); }
+        .btn-outline:hover { background: var(--cyan-light); }
+        .btn-ghost { background: white; color: var(--muted); border: 1px solid var(--border); }
+        .btn-ghost:hover { border-color: var(--border-dark); color: var(--text); }
+        .btn-green { background: #1a7336; color: white; }
+        .btn-green:hover { background: #145a28; box-shadow: 0 2px 8px rgba(26,115,54,0.35); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        .btn-danger-sm { background: transparent; color: var(--dim); border: 1px solid transparent; padding: 5px 10px; font-size: 12px; font-family: Arial, sans-serif; cursor: pointer; border-radius: var(--radius-sm); transition: all 0.15s; }
+        .btn-danger-sm:hover { background: var(--danger-bg); color: var(--danger); border-color: #f5b8b5; }
+
+        /* ── FIELDS ── */
+        .field { padding: 8px 12px; background: white; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: Arial, sans-serif; font-size: 13px; color: var(--text); outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+        .field:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0,158,227,0.15); }
+        .field::placeholder { color: var(--dim); }
+
+        /* ── ADD BRAND ROW ── */
+        .add-row { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+        .add-row .field-brand { flex: 1; min-width: 160px; }
+        .add-row .field-pct   { width: 80px; text-align: center; }
+
+        /* ── BULK ── */
+        .bulk-panel { background: var(--cyan-light); border: 1px solid var(--cyan-mid); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 20px; }
+        .bulk-panel h4 { font-size: 13px; font-weight: 700; color: var(--cyan-dark); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        .bulk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 12px; }
+        .bulk-item { display: flex; align-items: center; gap: 8px; background: white; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; }
+        .bulk-item label { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bulk-item input { width: 60px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; font-family: Arial, sans-serif; font-size: 13px; font-weight: 700; color: var(--cyan-dark); text-align: center; outline: none; background: var(--bg); }
+        .bulk-item input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,158,227,0.15); }
+        .bulk-item span { font-size: 12px; color: var(--muted); }
+        .bulk-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .bulk-set-all { display: flex; gap: 6px; align-items: center; }
+        .bulk-set-all input { width: 64px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: Arial, sans-serif; font-size: 13px; text-align: center; outline: none; }
+        .bulk-set-all input:focus { border-color: var(--cyan); }
+        .bulk-set-all span { font-size: 12px; color: var(--muted); }
+
+        /* ── BRANDS TABLE ── */
+        .brands-table { width: 100%; border-collapse: collapse; }
+        .brands-table thead th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 8px 12px; text-align: left; border-bottom: 2px solid var(--border); }
+        .brands-table tbody tr { transition: background 0.1s; }
+        .brands-table tbody tr:hover { background: var(--cyan-light); }
+        .brands-table tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+        .brands-table tbody td:first-child { font-weight: 600; color: var(--text); }
+        .pct-input { width: 60px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; font-family: Arial, sans-serif; font-size: 13px; font-weight: 700; color: var(--cyan-dark); text-align: center; outline: none; }
+        .pct-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,158,227,0.15); }
+        .pct-suffix { font-size: 12px; color: var(--muted); margin-left: 3px; }
+        .source-badge { display: inline-block; padding: 2px 7px; border-radius: 100px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
+        .source-badge.sheets { background: #e6f4ea; color: #1a7336; border: 1px solid #a8d5b5; }
+        .source-badge.manual { background: var(--bg);  color: var(--dim);   border: 1px solid var(--border); }
+
+        /* ── DIVIDER ── */
+        .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+        /* ── ACTION ROW ── */
+        .action-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .status-msg { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+
+        /* ── LOADING ── */
+        .loading-wrap { display: none; flex-direction: column; align-items: center; padding: 44px; gap: 14px; }
+        .loading-wrap.active { display: flex; }
+        .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--cyan); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-wrap p { font-size: 13px; color: var(--muted); }
+
+        /* ── STATS ── */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .stat-tile { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; }
+        .stat-tile .slabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--dim); margin-bottom: 6px; }
+        .stat-tile .svalue { font-size: 22px; font-weight: 700; color: var(--cyan-dark); }
+        .stat-tile.alt .svalue { color: var(--text); }
+
+        /* ── RESULTS TABLE ── */
+        .results-scroll { overflow: auto; max-height: 500px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+        .results-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .results-table thead { position: sticky; top: 0; z-index: 5; }
+        .results-table thead th { background: var(--cyan); color: white; padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 2px solid var(--cyan-dark); white-space: nowrap; }
+        .results-table thead th.right { text-align: right; }
+        .results-table tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--muted); }
+        .results-table tbody tr:nth-child(even) td { background: var(--bg); }
+        .results-table tbody tr:hover td { background: var(--cyan-light); color: var(--text); }
+        .results-table td.right { text-align: right; font-size: 12px; }
+        .results-table td.code { font-size: 12px; color: var(--dim); }
+        .results-table td.name { font-weight: 600; color: var(--text); }
+        .results-table td.brand { font-weight: 600; color: var(--cyan-dark); }
+        .results-table tr.subtotal td { background: #dcf0fa !important; font-weight: 700; font-size: 12px; color: var(--cyan-dark); border-top: 1px solid var(--cyan-mid); border-bottom: 1px solid var(--cyan-mid); }
+        .results-table tr.grand-total td { background: var(--cyan) !important; color: white; font-weight: 700; font-size: 13px; border: none; }
+        .results-table tr.grand-total td.right { font-size: 12px; }
+        .pct-badge { display: inline-block; padding: 1px 8px; border-radius: 100px; background: var(--cyan-light); border: 1px solid var(--cyan-mid); font-size: 11px; color: var(--cyan-dark); font-weight: 700; }
+
+        /* ── DOWNLOAD GROUP ── */
+        .download-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+        .download-card {
+            display: flex; flex-direction: column; gap: 4px;
+            padding: 12px 16px;
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            background: var(--bg);
+        }
+
+        .download-card .dc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); }
+        .download-card .dc-desc  { font-size: 11px; color: var(--muted); }
+
+        .toggle-link { background: none; border: none; color: var(--cyan); font-family: Arial, sans-serif; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 0; }
+        .toggle-link:hover { color: var(--cyan-dark); }
+
+        /* ── FOOTER ── */
+        .footer { background: var(--cyan); text-align: center; padding: 16px; font-size: 12px; color: rgba(255,255,255,0.75); }
+        .footer strong { color: white; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 3px; }
+        #fileInfo .notice { margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+    <div class="topbar-logo">
+        <img src="data:image/jpeg;base64,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" alt="Ofersa" style="height:36px; display:block;">
+        </div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-title">Calculadora de Incentivos — Portafolio Acotado</div>
+</div>
+
+<div class="page">
+
+    <!-- ══ SHEETS CONFIG (collapsed by default) ══ -->
+    <div class="card" id="sheetsCard">
+        <div class="card-head" onclick="toggleCard('sheetsCard')" id="sheetsCardHead">
+            <span class="step-pill green">SHEETS</span>
+            <h2>Conectar Google Sheets</h2>
+            <div class="card-head-right">
+                <div class="gs-status" id="gsStatus">
+                    <div class="gs-status-dot" id="gsDot"></div>
+                    <span id="gsStatusText">Sin configurar</span>
+                </div>
+                <div class="collapse-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+            </div>
+        </div>
+        <div class="card-body" id="sheetsCardBody">
+            <button class="sub-toggle" id="instrToggle" onclick="toggleInstr(event)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                ¿Cómo configurar? (ver instrucciones)
+            </button>
+            <div id="instrPanel" style="display:none; margin-bottom:16px;">
+                <div class="instructions-box">
+                    <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Pasos para obtener tu API Key y Sheet ID</h4>
+                    <ol class="steps-list">
+                        <li>Ve a <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a> y crea un proyecto nuevo (o usa uno existente).</li>
+                        <li>En el menú lateral, entra a <strong>APIs y servicios → Biblioteca</strong>. Busca <strong>"Google Sheets API"</strong> y actívala.</li>
+                        <li>Ve a <strong>APIs y servicios → Credenciales</strong>. Haz clic en <strong>"+ Crear credenciales" → Clave de API</strong>. Copia la clave generada.</li>
+                        <li>Abre tu Google Sheet. En la URL verás el <strong>Sheet ID</strong>: <code>spreadsheets/d/<strong>ID_AQUI</strong>/edit</code></li>
+                        <li>Asegúrate de que la hoja esté compartida con <strong>"Cualquier persona con el enlace puede ver"</strong>.</li>
+                        <li>Escribe el nombre exacto de la pestaña, por ejemplo: <code>Hoja1</code>.</li>
+                        <li>Pega los valores abajo y haz clic en <strong>"Cargar desde Sheets"</strong>.</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="gs-panel">
+                <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Configuración de conexión</h4>
+                <div class="gs-fields">
+                    <div class="gs-field-row">
+                        <div class="gs-field-group" style="flex:2;">
+                            <label>API Key de Google</label>
+                            <input type="password" class="field" id="gsApiKey" placeholder="AIzaSy..." autocomplete="off">
+                            <div class="gs-help">Google Cloud Console → APIs y servicios → Credenciales</div>
+                        </div>
+                        <div class="gs-field-group" style="flex:2;">
+                            <label>Sheet ID</label>
+                            <input type="text" class="field" id="gsSheetId" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74...">
+                            <div class="gs-help">ID largo en la URL de tu Google Sheet</div>
+                        </div>
+                        <div class="gs-field-group" style="flex:1;">
+                            <label>Nombre de la pestaña</label>
+                            <input type="text" class="field" id="gsSheetName" value="Hoja 1">
+                        </div>
+                    </div>
+                    <div class="gs-field-row">
+                        <div class="gs-field-group" style="flex:1;">
+                            <label>Columna "Descripción" (marca)</label>
+                            <input type="text" class="field" id="gsColMarca" value="Descripción">
+                        </div>
+                        <div class="gs-field-group" style="flex:1;">
+                            <label>Columna "% Bonificación"</label>
+                            <input type="text" class="field" id="gsColPct" value="% Bonificacion">
+                        </div>
+                        <div class="gs-field-group" style="flex:1; justify-content:flex-end;">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-primary" onclick="cargarDesdeSheets()" id="gsLoadBtn" style="margin-top:2px;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                                Cargar desde Sheets
+                            </button>
+                            <button class="btn btn-ghost" onclick="limpiarConfig()" style="margin-top:2px;" title="Borrar configuración guardada">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                Limpiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="gsNotice"></div>
+        </div>
+    </div>
+
+    <!-- ══ PASO 01: UPLOAD (open by default) ══ -->
+    <div class="card" id="uploadCard">
+        <div class="card-head open" onclick="toggleCard('uploadCard')" id="uploadCardHead">
+            <span class="step-pill">PASO 01</span>
+            <h2>Cargar Archivo Excel</h2>
+            <div class="card-head-right">
+                <span style="font-size:11px;color:var(--dim);">.xlsx / .xls</span>
+                <div class="collapse-icon" style="transform:rotate(180deg);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+            </div>
+        </div>
+        <div class="card-body" id="uploadCardBody" style="display:block;">
+            <div class="notice info">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>Solo se procesarán pedidos cuyo número comience con <strong>PL</strong>. Columnas requeridas: Código Cliente, Nombre Cliente, Marca, Num Pedido, Total Venta.</span>
+            </div>
+            <div class="upload-zone" id="dropArea">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <h3>Arrastra tu archivo aquí</h3>
+                <p>o haz clic para seleccionar</p>
+                <div class="upload-pill">.xlsx &nbsp;·&nbsp; .xls</div>
+                <input type="file" id="fileInput" accept=".xlsx,.xls">
+            </div>
+            <div id="fileInfo"></div>
+            <div id="resetBtn" style="margin-top:14px; display:none;">
+                <button class="btn btn-ghost" onclick="cargarNuevoArchivo()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                    Limpiar y cargar nuevo archivo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ PASO 02: BRANDS (open by default) ══ -->
+    <div class="card" id="brandsCard">
+        <div class="card-head open" onclick="toggleCard('brandsCard')" id="brandsCardHead">
+            <span class="step-pill">PASO 02</span>
+            <h2>Porcentajes de Incentivo por Marca</h2>
+            <div class="card-head-right">
+                <button class="btn btn-ghost btn-sm" id="gsReloadBtn" style="display:none;"
+                    onclick="event.stopPropagation(); cargarDesdeSheets()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                    Sincronizar Sheets
+                </button>
+                <div class="collapse-icon" style="transform:rotate(180deg);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+            </div>
+        </div>
+        <div class="card-body" id="brandsCardBody" style="display:block;">
+            <div style="margin-bottom:16px;">
+                <button class="toggle-link" id="toggleBulk" onclick="toggleBulkPanel()">▶ Edición masiva de porcentajes</button>
+            </div>
+            <div id="bulkPanel" class="bulk-panel" style="display:none;">
+                <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>Editar todos los porcentajes a la vez</h4>
+                <div class="bulk-grid" id="bulkGrid"></div>
+                <div class="bulk-actions">
+                    <div class="bulk-set-all">
+                        <span>Aplicar mismo % a todas:</span>
+                        <input type="number" id="bulkAllPct" value="2" min="0" max="100" step="0.1">
+                        <span>%</span>
+                        <button class="btn btn-outline btn-sm" onclick="aplicarATodas()">Aplicar a todas</button>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="guardarBulk()" style="margin-left:auto;" id="bulkSaveBtn">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        Guardar cambios
+                    </button>
+                </div>
+            </div>
+            <div class="add-row">
+                <input type="text" class="field field-brand" id="nuevaMarcaNombre" placeholder="Nombre de la marca">
+                <input type="number" class="field field-pct" id="nuevaMarcaPorcentaje" value="2" min="0" max="100" step="0.1">
+                <span style="font-size:12px;color:var(--muted)">%</span>
+                <button class="btn btn-outline" onclick="agregarMarca()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Agregar Marca
+                </button>
+            </div>
+            <table class="brands-table">
+                <thead><tr><th>Marca</th><th>% Incentivo</th><th>Origen</th><th style="width:90px;text-align:center;">Acción</th></tr></thead>
+                <tbody id="incentivosBody">
+                </tbody>
+            </table>
+            <div class="divider"></div>
+            <div class="action-row">
+                <button class="btn btn-primary" id="processBtn" disabled>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    Procesar Datos
+                </button>
+                <span class="status-msg" id="statusMessage">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Primero carga un archivo en el Paso 01
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOADING -->
+    <div class="loading-wrap" id="loading"><div class="spinner"></div><p>Procesando datos…</p></div>
+
+    <!-- ══ PASO 03: RESULTS ══ -->
+    <div class="card" id="resultsCard" style="display:none;">
+        <div class="card-head static">
+            <span class="step-pill">PASO 03</span>
+            <h2>Resultados</h2>
+            <div class="card-head-right"><span id="resultSubtitle" style="font-size:12px;color:var(--muted);">—</span></div>
+        </div>
+        <div class="card-body always-open">
+            <div class="stats-grid" id="statsArea"></div>
+            <div class="results-scroll"><table class="results-table" id="previewTable"></table></div>
+            <div class="divider"></div>
+            <div class="download-group">
+                <div>
+                    <button class="btn btn-primary" id="downloadBtn">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Reporte de Incentivos (.xlsx)
+                    </button>
+                    <div style="font-size:11px;color:var(--muted);margin-top:4px;padding-left:2px;">Detalle por cliente y marca con subtotales</div>
+                </div>
+                <div>
+                    <button class="btn btn-green" id="downloadNotaBtn">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        Nota de Crédito (.xlsx)
+                    </button>
+                    <div style="font-size:11px;color:var(--muted);margin-top:4px;padding-left:2px;">Resumen por cliente: Código, Monto, Observación</div>
+                </div>
+                <div style="margin-left:auto;">
+                    <button class="btn btn-ghost" onclick="cargarNuevoArchivo()">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                        Cargar otro archivo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="footer"><strong>OFERSA</strong> &nbsp;·&nbsp; Calculadora de Incentivos — Portafolio Acotado v1.0 &nbsp;·&nbsp; Costa Rica 🇨🇷</div>
+
+<script>
+    let excelData = null, processedData = null;
+
+    const dropArea    = document.getElementById('dropArea');
+    const fileInput   = document.getElementById('fileInput');
+    const fileInfo    = document.getElementById('fileInfo');
+    const processBtn  = document.getElementById('processBtn');
+    const loading     = document.getElementById('loading');
+    const resultsCard = document.getElementById('resultsCard');
+    const statsArea   = document.getElementById('statsArea');
+    const previewTable= document.getElementById('previewTable');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const downloadNotaBtn = document.getElementById('downloadNotaBtn');
+    const statusMsg   = document.getElementById('statusMessage');
+
+    const ICO = {
+        info:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+        success: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+        warning: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+        error:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+    };
+
+    /* ── CARD COLLAPSE ── */
+    function toggleCard(cardId) {
+        const head = document.getElementById(cardId + 'Head');
+        const body = document.getElementById(cardId + 'Body');
+        if (!head || !body) return;
+        const isOpen = head.classList.contains('open');
+        head.classList.toggle('open', !isOpen);
+        body.style.display = isOpen ? 'none' : 'block';
+        const icon = head.querySelector('.collapse-icon');
+        if (icon) icon.style.transform = isOpen ? '' : 'rotate(180deg)';
+    }
+
+    function toggleInstr(e) {
+        e.stopPropagation();
+        const panel = document.getElementById('instrPanel');
+        const btn   = document.getElementById('instrToggle');
+        const open  = panel.style.display === 'none';
+        panel.style.display = open ? 'block' : 'none';
+        btn.innerHTML = open
+            ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ¿Cómo configurar? (ocultar)`
+            : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ¿Cómo configurar? (ver instrucciones)`;
+    }
+
+    function showNotice(container, type, html, autoDismiss) {
+        const el = document.createElement('div');
+        el.className = `notice ${type}`;
+        el.innerHTML = (ICO[type]||'') + `<span>${html}</span>`;
+        container.appendChild(el);
+        if (autoDismiss) setTimeout(() => el.remove(), autoDismiss);
+        return el;
+    }
+
+    function setGsStatus(state, text) {
+        document.getElementById('gsDot').className = 'gs-status-dot ' + state;
+        document.getElementById('gsStatusText').textContent = text;
+    }
+
+    /* ══ GOOGLE SHEETS ══ */
+    async function cargarDesdeSheets() {
+        const apiKey    = document.getElementById('gsApiKey').value.trim();
+        const sheetId   = document.getElementById('gsSheetId').value.trim();
+        const sheetName = document.getElementById('gsSheetName').value.trim() || 'Hoja1';
+        const colMarca  = document.getElementById('gsColMarca').value.trim() || 'Descripción';
+        const colPct    = document.getElementById('gsColPct').value.trim() || '% Bonificacion';
+        const noticeArea = document.getElementById('gsNotice');
+        noticeArea.innerHTML = '';
+        if (!apiKey)  { showNotice(noticeArea, 'error', 'Falta la API Key de Google.'); return; }
+        if (!sheetId) { showNotice(noticeArea, 'error', 'Falta el Sheet ID.'); return; }
+        setGsStatus('loading', 'Conectando…');
+        document.getElementById('gsLoadBtn').disabled = true;
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(sheetName)}?key=${apiKey}`;
+        try {
+            const res  = await fetch(url);
+            const json = await res.json();
+            if (!res.ok) { setGsStatus('error', 'Error'); showNotice(noticeArea, 'error', `<strong>Error:</strong> ${json.error?.message||res.status}`); document.getElementById('gsLoadBtn').disabled=false; return; }
+            const rows = json.values;
+            if (!rows||rows.length<2) { setGsStatus('error', 'Sin datos'); showNotice(noticeArea,'warning','Hoja vacía o sin datos.'); document.getElementById('gsLoadBtn').disabled=false; return; }
+            const headers  = rows[0].map(h => h.trim());
+            const idxMarca = headers.findIndex(h => h.toLowerCase()===colMarca.toLowerCase());
+            const idxPct   = headers.findIndex(h => h.toLowerCase()===colPct.toLowerCase());
+            if (idxMarca===-1) { setGsStatus('error','Columna no encontrada'); showNotice(noticeArea,'error',`Columna <strong>"${colMarca}"</strong> no encontrada. Disponibles: ${headers.join(', ')}`); document.getElementById('gsLoadBtn').disabled=false; return; }
+            if (idxPct===-1)   { setGsStatus('error','Columna no encontrada'); showNotice(noticeArea,'error',`Columna <strong>"${colPct}"</strong> no encontrada. Disponibles: ${headers.join(', ')}`); document.getElementById('gsLoadBtn').disabled=false; return; }
+            const marcasSheets = [];
+            rows.slice(1).forEach(row => {
+                const marca = (row[idxMarca]||'').trim();
+                const pct   = parseFloat((row[idxPct]||'').toString().trim().replace('%','').replace(',','.'));
+                if (marca && !isNaN(pct)) marcasSheets.push({marca, pct});
+            });
+            if (!marcasSheets.length) { setGsStatus('error','Sin marcas'); showNotice(noticeArea,'warning','No se encontraron filas válidas.'); document.getElementById('gsLoadBtn').disabled=false; return; }
+            const tbody = document.getElementById('incentivosBody');
+            marcasSheets.forEach(({marca, pct}) => {
+                const ex = tbody.querySelector(`tr[data-marca="${CSS.escape(marca)}"]`);
+                if (ex) { const inp=ex.querySelector('input[data-marca]'); if(inp) inp.value=pct; ex.setAttribute('data-source','sheets'); const b=ex.querySelector('.source-badge'); if(b){b.className='source-badge sheets';b.textContent='Sheets';} }
+                else tbody.appendChild(makeBrandRow(marca, pct, 'sheets'));
+            });
+            setGsStatus('ok', `${marcasSheets.length} marcas · ${new Date().toLocaleTimeString('es-CR')}`);
+            showNotice(noticeArea, 'success', `<strong>${marcasSheets.length} marcas sincronizadas.</strong>`);
+            document.getElementById('gsReloadBtn').style.display = '';
+            // Auto-collapse
+            const h=document.getElementById('sheetsCardHead'), b=document.getElementById('sheetsCardBody');
+            h.classList.remove('open'); b.style.display='none'; const ic=h.querySelector('.collapse-icon'); if(ic) ic.style.transform='';
+            if (document.getElementById('bulkPanel').style.display!=='none') refrescarBulkGrid();
+        } catch(err) { setGsStatus('error','Error de red'); showNotice(noticeArea,'error',`<strong>Error de red:</strong> ${err.message}`); }
+        document.getElementById('gsLoadBtn').disabled = false;
+    }
+
+    /* ── BULK ── */
+    function toggleBulkPanel() {
+        const panel = document.getElementById('bulkPanel');
+        const btn   = document.getElementById('toggleBulk');
+        const open  = panel.style.display === 'none';
+        panel.style.display = open ? 'block' : 'none';
+        btn.textContent = (open ? '▼' : '▶') + ' Edición masiva de porcentajes';
+        if (open) refrescarBulkGrid();
+    }
+
+    function refrescarBulkGrid() {
+        const grid = document.getElementById('bulkGrid');
+        grid.innerHTML = '';
+        document.querySelectorAll('#incentivosBody tr').forEach(tr => {
+            const marca = tr.getAttribute('data-marca');
+            const pct   = tr.querySelector('input[data-marca]')?.value || '2';
+            const div = document.createElement('div');
+            div.className = 'bulk-item';
+            div.innerHTML = `<label title="${marca}">${marca}</label><input type="number" value="${pct}" min="0" max="100" step="0.1" data-bulk-marca="${marca}"><span>%</span>`;
+            grid.appendChild(div);
+        });
+    }
+
+    function aplicarATodas() {
+        const val = document.getElementById('bulkAllPct').value;
+        document.querySelectorAll('#bulkGrid input[data-bulk-marca]').forEach(i => { i.value = val; });
+    }
+
+    function guardarBulk() {
+        document.querySelectorAll('#bulkGrid input[data-bulk-marca]').forEach(inp => {
+            const main = document.querySelector(`#incentivosBody input[data-marca="${CSS.escape(inp.getAttribute('data-bulk-marca'))}"]`);
+            if (main) main.value = inp.value;
+        });
+        const btn = document.getElementById('bulkSaveBtn');
+        const orig = btn.innerHTML;
+        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> ¡Guardado!`;
+        btn.style.background = '#1a7336';
+        setTimeout(() => { btn.innerHTML = orig; btn.style.background = ''; }, 2000);
+    }
+
+    /* ── HELPERS ── */
+    function detectarColumnas(data) {
+        if (!data.length) return null;
+        const cols = Object.keys(data[0]);
+        const find    = (...t) => cols.find(c => t.every(x => c.toLowerCase().includes(x)));
+        const findAny = (...t) => cols.find(c => t.some(x => c.toLowerCase().includes(x)));
+        return {
+            codigoCliente: find('cod','cliente') || find('codigo','cliente'),
+            nombreCliente: find('nombre','cliente') || findAny('cliente'),
+            marca:         cols.find(c => c.toLowerCase() === 'marca'),
+            numPedido:     find('num','pedido') || findAny('pedido'),
+            totalVenta:    findAny('venta','total') || cols.find(c => typeof data[0][c] === 'number')
+        };
+    }
+
+    function resetearCalculadora() {
+        processedData = null;
+        resultsCard.style.display = 'none';
+        statsArea.innerHTML = ''; previewTable.innerHTML = '';
+        fileInfo.querySelectorAll('.notice').forEach(n => n.remove());
+    }
+
+    function cargarNuevoArchivo() {
+        resetearCalculadora();
+        fileInput.value = ''; excelData = null;
+        processBtn.disabled = true;
+        statusMsg.innerHTML = `${ICO.info} Primero carga un archivo en el Paso 01`;
+        fileInfo.innerHTML = '';
+        document.getElementById('resetBtn').style.display = 'none';
+        const h=document.getElementById('uploadCardHead'), b=document.getElementById('uploadCardBody');
+        h.classList.add('open'); b.style.display='block'; h.querySelector('.collapse-icon').style.transform='rotate(180deg)';
+        window.scrollTo({top:0,behavior:'smooth'});
+    }
+
+    function makeBrandRow(nombre, pct, source='manual') {
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-marca', nombre);
+        tr.setAttribute('data-source', source);
+        const bc = source==='sheets' ? 'sheets' : 'manual';
+        const bt = source==='sheets' ? 'Sheets' : 'Manual';
+        tr.innerHTML = `<td>${nombre}</td><td><input type="number" class="pct-input" value="${pct}" min="0" max="100" step="0.1" data-marca="${nombre}"><span class="pct-suffix">%</span></td><td><span class="source-badge ${bc}">${bt}</span></td><td style="text-align:center;"><button class="btn-danger-sm" onclick="eliminarMarca('${nombre.replace(/'/g,"\\'")}')">Eliminar</button></td>`;
+        return tr;
+    }
+
+    function agregarMarca() {
+        const nombre = document.getElementById('nuevaMarcaNombre').value.trim();
+        const pct    = parseFloat(document.getElementById('nuevaMarcaPorcentaje').value);
+        if (!nombre) { alert('Ingresa el nombre de la marca'); return; }
+        if (isNaN(pct)||pct<0||pct>100) { alert('Porcentaje inválido (0–100)'); return; }
+        if (document.querySelector(`tr[data-marca="${nombre}"]`)) { alert('Esta marca ya existe'); return; }
+        document.getElementById('incentivosBody').appendChild(makeBrandRow(nombre, pct, 'manual'));
+        document.getElementById('nuevaMarcaNombre').value = '';
+        document.getElementById('nuevaMarcaPorcentaje').value = '2';
+        if (document.getElementById('bulkPanel').style.display!=='none') refrescarBulkGrid();
+    }
+
+    function eliminarMarca(nombre) {
+        if (confirm(`¿Eliminar la marca "${nombre}"?`)) {
+            document.querySelector(`tr[data-marca="${nombre}"]`)?.remove();
+            if (document.getElementById('bulkPanel').style.display!=='none') refrescarBulkGrid();
+        }
+    }
+
+    function detectarYSugerirMarcas(data) {
+        const mapeo = window.mapeoColumnas;
+        if (!mapeo?.marca) return;
+        const enArchivo = new Set(data.map(r => r[mapeo.marca]).filter(Boolean));
+        const enTabla   = new Set([...document.querySelectorAll('input[data-marca]')].map(i => i.dataset.marca));
+        const faltantes = [...enArchivo].filter(m => m && m!=='nan' && !enTabla.has(m));
+        if (!faltantes.length) return;
+        const div = document.createElement('div');
+        div.className = 'notice warning';
+        div.style.flexDirection = 'column'; div.style.gap = '10px';
+        div.innerHTML = `<div style="display:flex;gap:8px;align-items:flex-start;">${ICO.warning}<span><strong>Marcas en el archivo sin configurar:</strong> ${faltantes.join(', ')}</span></div><button class="btn btn-ghost btn-sm" onclick="agregarMarcasAuto(${JSON.stringify(faltantes)}, this.closest('.notice'))">Agregar todas con 2%</button>`;
+        fileInfo.appendChild(div);
+    }
+
+    function agregarMarcasAuto(marcas, noticeEl) {
+        marcas.forEach(m => { if (!document.querySelector(`tr[data-marca="${m}"]`)) document.getElementById('incentivosBody').appendChild(makeBrandRow(m, 2, 'manual')); });
+        noticeEl?.remove();
+        if (document.getElementById('bulkPanel').style.display!=='none') refrescarBulkGrid();
+    }
+
+    /* ── FILE ── */
+    dropArea.addEventListener('click', () => fileInput.click());
+    dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('dragover'); });
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+    dropArea.addEventListener('drop', e => { e.preventDefault(); dropArea.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+    fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+    document.getElementById('nuevaMarcaNombre').addEventListener('keypress', e => { if(e.key==='Enter') agregarMarca(); });
+    document.getElementById('nuevaMarcaPorcentaje').addEventListener('keypress', e => { if(e.key==='Enter') agregarMarca(); });
+
+    function handleFile(file) {
+        if (!file.name.match(/\.(xlsx|xls)$/i)) { alert('Selecciona un archivo Excel válido'); return; }
+        resetearCalculadora();
+        showNotice(fileInfo, 'success', `<strong>${file.name}</strong> — ${(file.size/1024).toFixed(1)} KB`);
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+                excelData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                const mapeo = detectarColumnas(excelData);
+                const faltantes = ['numPedido','marca','totalVenta'].filter(k => !mapeo?.[k]);
+                if (faltantes.length) { alert(`No se detectaron columnas: ${faltantes.join(', ')}`); return; }
+                window.mapeoColumnas = mapeo;
+                processBtn.disabled = false;
+                statusMsg.innerHTML = `${ICO.success} <strong>${excelData.length} registros cargados.</strong> Configura los porcentajes y presiona Procesar Datos.`;
+                showNotice(fileInfo, 'info', `Columnas detectadas → Marca: <strong>${mapeo.marca}</strong> · Pedido: <strong>${mapeo.numPedido}</strong> · Venta: <strong>${mapeo.totalVenta}</strong>`);
+                document.getElementById('resetBtn').style.display = 'block';
+                detectarYSugerirMarcas(excelData);
+            } catch(err) { alert('Error al leer el archivo: '+err.message); }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    /* ── PROCESS ── */
+    processBtn.addEventListener('click', processData);
+
+    function processData() {
+        if (!excelData) return;
+        loading.classList.add('active');
+        resultsCard.style.display = 'none';
+        setTimeout(() => {
+            try {
+                const mapeo = window.mapeoColumnas;
+                const incentivos = {};
+                document.querySelectorAll('input[data-marca]').forEach(i => { incentivos[i.dataset.marca] = parseFloat(i.value)/100; });
+                const pedidosPL = excelData.filter(r => r[mapeo.numPedido]?.toString().toUpperCase().startsWith('PL'));
+                if (!pedidosPL.length) { alert('No se encontraron pedidos que empiecen con "PL"'); loading.classList.remove('active'); return; }
+                const mapped = pedidosPL.map(r => {
+                    const marca = r[mapeo.marca];
+                    const venta = parseFloat(r[mapeo.totalVenta]||0);
+                    const pct   = incentivos[marca]||0;
+                    return {codigoCliente:r[mapeo.codigoCliente]||'', nombreCliente:r[mapeo.nombreCliente]||'', marca, totalVenta:venta, porcentaje:pct, incentivo:venta*pct};
+                });
+                const grouped = {};
+                mapped.forEach(r => {
+                    const k = `${r.codigoCliente}|${r.marca}`;
+                    if (!grouped[k]) grouped[k] = {...r, totalVenta:0, incentivo:0};
+                    grouped[k].totalVenta += r.totalVenta;
+                    grouped[k].incentivo  += r.incentivo;
+                });
+                let resultado = Object.values(grouped).sort((a,b) => a.codigoCliente.localeCompare(b.codigoCliente)||a.marca.localeCompare(b.marca));
+                const conSubs = [];
+                let cur=null, subV=0, subI=0, lastNombre='';
+                resultado.forEach((row, i) => {
+                    if (cur !== row.codigoCliente) {
+                        if (cur!==null) conSubs.push({tipo:'subtotal', nombreCliente:`Subtotal — ${lastNombre}`, totalVenta:subV, incentivo:subI});
+                        cur=row.codigoCliente; subV=0; subI=0;
+                    }
+                    lastNombre = row.nombreCliente;
+                    conSubs.push({...row, tipo:'data'});
+                    subV+=row.totalVenta; subI+=row.incentivo;
+                    if (i===resultado.length-1) conSubs.push({tipo:'subtotal', nombreCliente:`Subtotal — ${row.nombreCliente}`, totalVenta:subV, incentivo:subI});
+                });
+                // Grand total
+                const totV = resultado.reduce((s,r)=>s+r.totalVenta,0);
+                const totI = resultado.reduce((s,r)=>s+r.incentivo,0);
+                conSubs.push({tipo:'grand_total', totalVenta:totV, incentivo:totI});
+                processedData = conSubs;
+                displayResults();
+                loading.classList.remove('active');
+                resultsCard.style.display = 'block';
+                resultsCard.scrollIntoView({behavior:'smooth', block:'start'});
+            } catch(err) { alert('Error: '+err.message); loading.classList.remove('active'); }
+        }, 400);
+    }
+
+    const fmt = n => n.toLocaleString('es-CR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+    function displayResults() {
+        const dataRows       = processedData.filter(r => r.tipo==='data');
+        const totalVenta     = dataRows.reduce((s,r)=>s+r.totalVenta,0);
+        const totalIncentivo = dataRows.reduce((s,r)=>s+r.incentivo,0);
+        const clientes       = new Set(dataRows.map(r=>r.codigoCliente)).size;
+        const marcas         = new Set(dataRows.map(r=>r.marca)).size;
+        document.getElementById('resultSubtitle').textContent = `${fileInput.files[0]?.name||'Archivo'} · ${new Date().toLocaleDateString('es-CR')}`;
+        statsArea.innerHTML = `
+            <div class="stat-tile"><div class="slabel">Total Ventas PL</div><div class="svalue">₡${fmt(totalVenta)}</div></div>
+            <div class="stat-tile"><div class="slabel">Total Incentivos</div><div class="svalue">₡${fmt(totalIncentivo)}</div></div>
+            <div class="stat-tile alt"><div class="slabel">Clientes</div><div class="svalue">${clientes}</div></div>
+            <div class="stat-tile alt"><div class="slabel">Marcas</div><div class="svalue">${marcas}</div></div>`;
+        let html = `<thead><tr><th>Código</th><th>Cliente</th><th>Marca</th><th class="right">Incentivo ₡</th><th class="right">Venta ₡</th><th class="right">%</th></tr></thead><tbody>`;
+        processedData.forEach(row => {
+            if (row.tipo==='subtotal') {
+                html += `<tr class="subtotal"><td></td><td>${row.nombreCliente}</td><td></td><td class="right">${fmt(row.incentivo)}</td><td class="right">${fmt(row.totalVenta)}</td><td></td></tr>`;
+            } else if (row.tipo==='grand_total') {
+                html += `<tr class="grand-total"><td></td><td>TOTAL GENERAL</td><td></td><td class="right">₡${fmt(row.incentivo)}</td><td class="right">₡${fmt(row.totalVenta)}</td><td></td></tr>`;
+            } else {
+                html += `<tr><td class="code">${row.codigoCliente}</td><td class="name">${row.nombreCliente}</td><td class="brand">${row.marca}</td><td class="right">${fmt(row.incentivo)}</td><td class="right">${fmt(row.totalVenta)}</td><td class="right"><span class="pct-badge">${(row.porcentaje*100).toFixed(0)}%</span></td></tr>`;
+            }
+        });
+        html += `</tbody>`;
+        previewTable.innerHTML = html;
+    }
+
+    /* ══ EXCEL COLOR HELPERS (using SheetJS) ══ */
+
+    // Cyan palette as ARGB hex (SheetJS uses ARGB)
+    const XL = {
+        CYAN:       'FF009EE3',
+        CYAN_DARK:  'FF007BB5',
+        CYAN_LIGHT: 'FFE5F5FC',
+        CYAN_MID:   'FFB3E0F7',
+        SUBTOTAL:   'FFDCF0FA',
+        WHITE:      'FFFFFFFF',
+        GRAY_LIGHT: 'FFF4F6F8',
+        GRAY_MID:   'FFD0D7DE',
+        GRAY_TEXT:  'FF555E6B',
+        TEXT_DARK:  'FF1A1A1A',
+        GREEN:      'FF1A7336',
+        GREEN_LIGHT:'FFE6F4EA',
+    };
+
+    function xlFont(opts={}) {
+        return { name:'Arial', sz: opts.sz||10, bold:!!opts.bold, color:{argb: opts.color||XL.TEXT_DARK}, italic:!!opts.italic };
+    }
+
+    function xlFill(argb) {
+        return { type:'pattern', pattern:'solid', fgColor:{argb} };
+    }
+
+    function xlAlign(h='left', v='middle', wrap=false) {
+        return { horizontal:h, vertical:v, wrapText:wrap };
+    }
+
+    function xlBorder(color='FFD0D7DE') {
+        const s = { style:'thin', color:{argb:color} };
+        return { top:s, bottom:s, left:s, right:s };
+    }
+
+    function xlBorderBottom(color='FFD0D7DE') {
+        return { bottom:{ style:'thin', color:{argb:color} } };
+    }
+
+    function xlBorderTopBottom(color='FFD0D7DE') {
+        return { top:{style:'thin',color:{argb:color}}, bottom:{style:'thin',color:{argb:color}} };
+    }
+
+    function applyCell(cell, {font, fill, alignment, border, numFmt, value}={}) {
+        if (value !== undefined) cell.value = value;
+        if (font)      cell.font      = font;
+        if (fill)      cell.fill      = fill;
+        if (alignment) cell.alignment = alignment;
+        if (border)    cell.border    = border;
+        if (numFmt)    cell.numFmt    = numFmt;
+    }
+
+    const MONEY_FMT = '"₡"#,##0.00';
+    const PCT_FMT   = '0%';
+    const TODAY_STR = new Date().toLocaleDateString('es-CR');
+
+    /* ── BUILD INCENTIVOS SHEET ── */
+    function buildIncentivosSheet(wb) {
+        const ws = wb.addWorksheet('Incentivos');
+
+        // Column widths
+        ws.columns = [
+            {width:16}, // A Código
+            {width:42}, // B Nombre
+            {width:18}, // C Marca
+            {width:22}, // D Incentivo
+            {width:20}, // E Venta
+            {width:14}, // F %
+        ];
+
+        // ── Row 1: Title ──
+        ws.mergeCells('A1:F1');
+        applyCell(ws.getCell('A1'), {
+            value: 'REPORTE DE INCENTIVOS — PEDIDOS PL',
+            font:      xlFont({sz:14, bold:true, color:XL.WHITE}),
+            fill:      xlFill(XL.CYAN),
+            alignment: xlAlign('center','middle'),
+            border:    xlBorder(XL.CYAN_DARK),
+        });
+        ws.getRow(1).height = 32;
+
+        // ── Row 2: Subtitle ──
+        ws.mergeCells('A2:F2');
+        applyCell(ws.getCell('A2'), {
+            value: `Generado el ${TODAY_STR}`,
+            font:      xlFont({sz:10, color:XL.GRAY_TEXT}),
+            fill:      xlFill(XL.CYAN_LIGHT),
+            alignment: xlAlign('center','middle'),
+        });
+        ws.getRow(2).height = 18;
+
+        // ── Row 3: Spacer ──
+        ws.getRow(3).height = 6;
+
+        // ── Row 4: Headers ──
+        const headers = ['Código Cliente','Nombre Cliente','Marca','Total Incentivo (₡)','Total Venta (₡)','Porcentaje'];
+        headers.forEach((h, i) => {
+            const cell = ws.getCell(4, i+1);
+            applyCell(cell, {
+                value: h,
+                font:      xlFont({sz:11, bold:true, color:XL.WHITE}),
+                fill:      xlFill(XL.CYAN),
+                alignment: xlAlign('center','middle',true),
+                border:    xlBorder(XL.CYAN_DARK),
+            });
+        });
+        ws.getRow(4).height = 22;
+
+        // ── Data rows ──
+        let rowNum = 5;
+        let dataCount = 0;
+        processedData.forEach(row => {
+            const exRow = ws.getRow(rowNum);
+            exRow.height = 18;
+
+            if (row.tipo === 'subtotal') {
+                const cells = [ws.getCell(rowNum,1), ws.getCell(rowNum,2), ws.getCell(rowNum,3), ws.getCell(rowNum,4), ws.getCell(rowNum,5), ws.getCell(rowNum,6)];
+                cells.forEach(c => { c.fill = xlFill(XL.SUBTOTAL); c.border = xlBorderTopBottom(XL.CYAN_MID); });
+                applyCell(ws.getCell(rowNum,2), { value:row.nombreCliente, font:xlFont({bold:true, italic:true, color:XL.CYAN_DARK}), alignment:xlAlign('left') });
+                applyCell(ws.getCell(rowNum,4), { value:row.incentivo,     font:xlFont({bold:true, italic:true, color:XL.CYAN_DARK}), alignment:xlAlign('right'), numFmt:MONEY_FMT });
+                applyCell(ws.getCell(rowNum,5), { value:row.totalVenta,    font:xlFont({bold:true, italic:true, color:XL.CYAN_DARK}), alignment:xlAlign('right'), numFmt:MONEY_FMT });
+
+            } else if (row.tipo === 'grand_total') {
+                exRow.height = 24;
+                for (let c=1;c<=6;c++) {
+                    const cell = ws.getCell(rowNum,c);
+                    cell.fill   = xlFill(XL.CYAN);
+                    cell.border = xlBorderTopBottom(XL.CYAN_DARK);
+                    cell.font   = xlFont({sz:11, bold:true, color:XL.WHITE});
+                }
+                applyCell(ws.getCell(rowNum,2), { value:'TOTAL GENERAL', alignment:xlAlign('left') });
+                applyCell(ws.getCell(rowNum,4), { value:row.incentivo,  alignment:xlAlign('right'), numFmt:MONEY_FMT });
+                applyCell(ws.getCell(rowNum,5), { value:row.totalVenta, alignment:xlAlign('right'), numFmt:MONEY_FMT });
+
+            } else {
+                dataCount++;
+                const bg = dataCount%2===0 ? XL.GRAY_LIGHT : XL.WHITE;
+                for (let c=1;c<=6;c++) {
+                    const cell = ws.getCell(rowNum,c);
+                    cell.fill   = xlFill(bg);
+                    cell.border = xlBorderBottom();
+                    cell.font   = xlFont({color:XL.TEXT_DARK});
+                }
+                applyCell(ws.getCell(rowNum,1), { value:row.codigoCliente, font:xlFont({color:XL.GRAY_TEXT}) });
+                applyCell(ws.getCell(rowNum,2), { value:row.nombreCliente });
+                applyCell(ws.getCell(rowNum,3), { value:row.marca,         font:xlFont({bold:true, color:XL.CYAN_DARK}) });
+                applyCell(ws.getCell(rowNum,4), { value:row.incentivo,     alignment:xlAlign('right'), numFmt:MONEY_FMT });
+                applyCell(ws.getCell(rowNum,5), { value:row.totalVenta,    alignment:xlAlign('right'), numFmt:MONEY_FMT });
+                applyCell(ws.getCell(rowNum,6), { value:row.porcentaje,    alignment:xlAlign('center'), numFmt:PCT_FMT,
+                    fill:xlFill(XL.CYAN_LIGHT), font:xlFont({bold:true, color:XL.CYAN_DARK}) });
+            }
+            rowNum++;
+        });
+
+        // Freeze panes
+        ws.views = [{state:'frozen', xSplit:0, ySplit:4, activeCell:'A5'}];
+
+        return ws;
+    }
+
+    /* ── BUILD NOTA DE CRÉDITO SHEET ── */
+    function buildNotaSheet(wb) {
+        const ws = wb.addWorksheet('Nota de Crédito');
+
+        ws.columns = [
+            {width:18}, // A Código
+            {width:22}, // B Monto
+            {width:52}, // C Observación
+        ];
+
+        // Title
+        ws.mergeCells('A1:C1');
+        applyCell(ws.getCell('A1'), {
+            value: 'RESUMEN NOTA DE CRÉDITO',
+            font:      xlFont({sz:14, bold:true, color:XL.WHITE}),
+            fill:      xlFill(XL.CYAN),
+            alignment: xlAlign('center','middle'),
+        });
+        ws.getRow(1).height = 32;
+
+        // Subtitle
+        ws.mergeCells('A2:C2');
+        applyCell(ws.getCell('A2'), {
+            value: `Bonificación por compra Canales Digitales — ${TODAY_STR}`,
+            font:      xlFont({sz:10, color:XL.GRAY_TEXT}),
+            fill:      xlFill(XL.CYAN_LIGHT),
+            alignment: xlAlign('center','middle'),
+        });
+        ws.getRow(2).height = 18;
+        ws.getRow(3).height = 6;
+
+        // Headers
+        ['Código Cliente','Monto Total (₡)','Observación'].forEach((h, i) => {
+            applyCell(ws.getCell(4, i+1), {
+                value: h,
+                font:      xlFont({sz:11, bold:true, color:XL.WHITE}),
+                fill:      xlFill(XL.CYAN),
+                alignment: xlAlign('center','middle'),
+                border:    xlBorder(XL.CYAN_DARK),
+            });
+        });
+        ws.getRow(4).height = 22;
+
+        // Aggregate: sum incentivo per codigoCliente
+        const totals = new Map();
+        processedData.filter(r => r.tipo==='data').forEach(r => {
+            totals.set(r.codigoCliente, (totals.get(r.codigoCliente)||0) + r.incentivo);
+        });
+
+        let rowNum = 5;
+        let i = 0;
+        let grandTotal = 0;
+        for (const [cod, monto] of totals) {
+            const bg = i%2===0 ? XL.WHITE : XL.GRAY_LIGHT;
+            const exRow = ws.getRow(rowNum);
+            exRow.height = 18;
+            for (let c=1;c<=3;c++) { ws.getCell(rowNum,c).fill = xlFill(bg); ws.getCell(rowNum,c).border = xlBorderBottom(); }
+            applyCell(ws.getCell(rowNum,1), { value:cod,   font:xlFont({color:XL.GRAY_TEXT}) });
+            applyCell(ws.getCell(rowNum,2), { value:monto, font:xlFont({bold:true}), alignment:xlAlign('right'), numFmt:MONEY_FMT });
+            applyCell(ws.getCell(rowNum,3), { value:'Bonificación por compra Canales Digitales', font:xlFont({color:XL.GRAY_TEXT}) });
+            grandTotal += monto;
+            rowNum++; i++;
+        }
+
+        // Total row
+        ws.getRow(rowNum).height = 22;
+        for (let c=1;c<=3;c++) {
+            const cell = ws.getCell(rowNum,c);
+            cell.fill   = xlFill(XL.CYAN);
+            cell.border = xlBorderTopBottom(XL.CYAN_DARK);
+            cell.font   = xlFont({sz:11, bold:true, color:XL.WHITE});
+        }
+        applyCell(ws.getCell(rowNum,1), { value:'TOTAL', alignment:xlAlign('left') });
+        applyCell(ws.getCell(rowNum,2), { value:grandTotal, alignment:xlAlign('right'), numFmt:MONEY_FMT });
+
+        ws.views = [{state:'frozen', xSplit:0, ySplit:4, activeCell:'A5'}];
+        return ws;
+    }
+
+    /* ── DOWNLOAD HANDLERS ── */
+    // We use ExcelJS loaded dynamically since SheetJS free tier lacks cell styling
+    // For full styling support, we use SheetJS with style workaround via write options
+    // Actually: we'll use a hybrid approach - build styled blob manually
+
+    async function getExcelJS() {
+        if (window.ExcelJS) return window.ExcelJS;
+        return new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+            s.onload = () => resolve(window.ExcelJS);
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+
+    downloadBtn.addEventListener('click', async () => {
+        if (!processedData) return;
+        downloadBtn.disabled = true;
+        downloadBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:spin 0.7s linear infinite"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg> Generando…`;
+        try {
+            const ExcelJS = await getExcelJS();
+            const wb = new ExcelJS.Workbook();
+            wb.creator = 'Ofersa'; wb.created = new Date();
+            buildIncentivosSheet(wb);
+            const buf = await wb.xlsx.writeBuffer();
+            downloadBlob(buf, `Incentivos_PL_${new Date().toISOString().split('T')[0]}.xlsx`);
+        } catch(err) { alert('Error generando Excel: '+err.message); }
+        downloadBtn.disabled = false;
+        downloadBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Reporte de Incentivos (.xlsx)`;
+    });
+
+    downloadNotaBtn.addEventListener('click', async () => {
+        if (!processedData) return;
+        downloadNotaBtn.disabled = true;
+        downloadNotaBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:spin 0.7s linear infinite"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg> Generando…`;
+        try {
+            const ExcelJS = await getExcelJS();
+            const wb = new ExcelJS.Workbook();
+            wb.creator = 'Ofersa'; wb.created = new Date();
+            buildNotaSheet(wb);
+            const buf = await wb.xlsx.writeBuffer();
+            downloadBlob(buf, `Nota_Credito_PL_${new Date().toISOString().split('T')[0]}.xlsx`);
+        } catch(err) { alert('Error generando Excel: '+err.message); }
+        downloadNotaBtn.disabled = false;
+        downloadNotaBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Nota de Crédito (.xlsx)`;
+    });
+
+    function downloadBlob(buffer, filename) {
+        const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(r => console.log('SW registrado:', r.scope))
+        .catch(e => console.error('SW error:', e));
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "name": "Calculadora de Incentivos — Portafolio Acotado",
+  "short_name": "Portafolio Acotado",
+  "description": "Calculadora de incentivos por marca para Portafolio Acotado — Ofersa",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#009ee3",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "es-CR"
+}
