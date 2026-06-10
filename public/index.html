@@ -1474,6 +1474,16 @@ document.addEventListener('DOMContentLoaded', () => {
         applyCell(ws.getCell(rowNum,1), { value:'TOTAL', alignment:xlAlign('left') });
         applyCell(ws.getCell(rowNum,3), { value:grandTotal, alignment:xlAlign('right'), numFmt:MONEY_FMT });
 
+        // Nota contable
+        rowNum += 2;
+        ws.mergeCells(rowNum, 1, rowNum, 4);
+        applyCell(ws.getCell(rowNum, 1), {
+            value: 'Nota: Estas NC deben registrarse a la cuenta 5-01-07-00-00- Otros Descuentos',
+            font:      xlFont({sz:10, bold:true, italic:true, color:XL.GRAY_TEXT}),
+            alignment: xlAlign('left', 'middle', true),
+        });
+        ws.getRow(rowNum).height = 18;
+
         ws.views = [{state:'frozen', xSplit:0, ySplit:4, activeCell:'A5'}];
         return ws;
     }
