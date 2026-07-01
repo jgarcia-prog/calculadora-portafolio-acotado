@@ -690,7 +690,7 @@
       <div class="sect-divider"></div>
       <div class="notice info">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span>Solo se procesan pedidos cuyo número empiece con <strong>PL</strong>. Columnas requeridas: Código Cliente, Nombre Cliente, Marca, Num Pedido, Total Venta.</span>
+        <span>Se procesan <strong>todos los pedidos</strong>. Columnas requeridas: Código Cliente, Nombre Cliente, Marca, Num Pedido, Total Venta.</span>
       </div>
       <div class="upload-zone" id="dropArea" tabindex="0" role="button" aria-label="Zona de carga de archivos Excel">
         <div class="upload-icon">
@@ -1165,8 +1165,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const mapeo = window.mapeoColumnas;
                 const incentivos = {};
                 document.querySelectorAll('input[data-marca]').forEach(i => { incentivos[i.dataset.marca] = parseFloat(i.value)/100; });
-                const pedidosPL = excelData.filter(r => r[mapeo.numPedido]?.toString().toUpperCase().startsWith('PL'));
-                if (!pedidosPL.length) { alert('No se encontraron pedidos que empiecen con "PL"'); loading.classList.remove('active'); return; }
+                const pedidosPL = excelData.filter(r => r[mapeo.numPedido]);
+                if (!pedidosPL.length) { alert('No se encontraron pedidos en el archivo.'); loading.classList.remove('active'); return; }
                 const mapped = pedidosPL.map(r => {
                     const marca = r[mapeo.marca];
                     const venta = parseFloat(r[mapeo.totalVenta]||0);
@@ -1307,7 +1307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // ── Row 1: Title ──
         ws.mergeCells('A1:F1');
         applyCell(ws.getCell('A1'), {
-            value: 'REPORTE DE INCENTIVOS — PEDIDOS PL',
+            value: 'REPORTE DE INCENTIVOS — PORTAFOLIOS ACOTADOS',
             font:      xlFont({sz:14, bold:true, color:XL.WHITE}),
             fill:      xlFill(XL.CYAN),
             alignment: xlAlign('center','middle'),
